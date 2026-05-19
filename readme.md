@@ -1,6 +1,6 @@
 # Stream Systems Visual
 
-Generative “starting soon” backgrounds for live streams (OBS browser source). Fifteen full-screen Canvas 2D visuals with shared `seed`, `density`, and `speed` URL params.
+Generative “starting soon” backgrounds for live streams (OBS browser source). **116** full-screen Canvas 2D visuals (16 hand-tuned + 100 catalog) with shared `seed`, `density`, and `speed` URL params.
 
 ## Quick start
 
@@ -69,7 +69,9 @@ Legacy `/?cycle=1&interval=10` redirects to `/cycle?interval=10`.
 | `/v/drift` | Soft bokeh drift |
 | `/v/contour` | Contour heightfield |
 
-Register new visuals in `src/routes/route-config.ts` and `src/routes.ts`.
+Hand-tuned visuals: add modules under `src/visualizations/`, then register in `src/routes/route-config.ts` and `src/routes.ts`.
+
+Catalog visuals (100): add an entry in `src/visual-catalog/catalog-definitions.ts` (or extend an engine in `engines.ts`). Routes and homepage tiles are generated automatically.
 
 ## Keyboard shortcuts
 

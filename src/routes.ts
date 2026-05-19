@@ -46,6 +46,10 @@ const DriftVisualPage = lazy(() =>
 const ContourVisualPage = lazy(() =>
   import('./pages/contour-visual-page').then(m => ({ default: m.ContourVisualPage })),
 )
+const CatalogVisualPage = lazy(() =>
+  import('./pages/catalog-visual-page').then(m => ({ default: m.CatalogVisualPage })),
+)
+import { catalogDefinitions } from './visual-catalog/catalog-definitions'
 import {
   homePath,
   matchRouteConfig,
@@ -74,6 +78,7 @@ export const visualizationPagesById = {
   sparks: SparksVisualPage,
   drift: DriftVisualPage,
   contour: ContourVisualPage,
+  ...Object.fromEntries(catalogDefinitions.map(d => [d.id, CatalogVisualPage])),
 } satisfies Record<string, ComponentType>
 
 /** Register new full-screen visuals in route-config.ts and visualizationPagesById */

@@ -1,5 +1,7 @@
 /** Route metadata only — safe to import from pages without circular deps */
 
+import { catalogRouteConfigs } from '../visual-catalog/catalog-routes'
+
 export const homePath = '/'
 
 /** OBS slideshow: random visuals, `?interval=` seconds between fades */
@@ -110,6 +112,7 @@ export const visualizationRouteConfigs: VisualizationRouteConfig[] = [
     label: 'Contour',
     ariaLabel: 'Drifting contour field',
   },
+  ...catalogRouteConfigs,
 ]
 
 export function getRouteConfig(id: string) {
