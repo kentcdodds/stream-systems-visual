@@ -4,6 +4,7 @@ import { readSystemsParams, writeSystemsParamsToSearch } from '../config/systems
 import { useAnimationLoop } from '../hooks/use-animation-loop'
 import { useKeyboard } from '../hooks/use-keyboard'
 import { drawFrame } from '../rendering/draw'
+import { setupDisplayCanvas } from '../rendering/setup-display-canvas'
 import { createWorld, stepWorld } from '../simulation/world'
 import type { World } from '../simulation/types'
 import { useVisualRuntime } from '../context/visual-runtime-context'
@@ -63,15 +64,7 @@ export function SystemsVisualPage() {
   const resize = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const w = window.innerWidth
-    const h = window.innerHeight
-    canvas.width = Math.floor(w * dpr)
-    canvas.height = Math.floor(h * dpr)
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
-    const ctx = canvas.getContext('2d')
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    setupDisplayCanvas(canvas)
   }, [])
 
   useEffect(() => {

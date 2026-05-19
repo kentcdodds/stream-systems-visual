@@ -1,3 +1,4 @@
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { randomInCanvas } from '../../simulation/spread-placement'
 import type { CanvasVisualState } from '../../components/canvas-visual-page'
@@ -59,9 +60,7 @@ export function createVoid(seed: number, _density: number, w: number, h: number)
     spawnTimer: rng.range(1.5, 4),
     spawnNonce: 0,
     time: 0,
-    width: w,
-    height: h,
-    firstFrame: true,
+    ...canvasLayoutFields(w, h),
   }
 }
 
@@ -79,8 +78,8 @@ function starScintillation(s: Star, t: number) {
 }
 
 /** Random point on expanded viewport perimeter, velocity toward a random interior aim. */
-function spawnComet(rng: ReturnType<typeof createRng>, w: number, h: number): Comet {
-  const margin = 25 + rng.range(0, 55)
+function spawnComet(rng: ReturnType<typeof createRng>, w: number, h: number, scale: number): Comet {
+  const margin = scaled(25, scale) + rng.range(0, scaled(55, scale))
   const outerW = w + margin * 2
   const outerH = h + margin * 2
   const perim = 2 * (outerW + outerH)
@@ -108,7 +107,7 @@ function spawnComet(rng: ReturnType<typeof createRng>, w: number, h: number): Co
   const dx = tx - x
   const dy = ty - y
   const len = Math.hypot(dx, dy) || 1
-  const speed = rng.range(200, 360)
+  const speed = scaled(rng.range(200, 360), scale)
   return {
     x,
     y,
@@ -121,9 +120,9 @@ function spawnComet(rng: ReturnType<typeof createRng>, w: number, h: number): Co
   }
 }
 
-function shouldStartFade(c: Comet, w: number, h: number) {
+function shouldStartFade(c: Comet, w: number, h: number, scale: number) {
   if (c.life >= ACTIVE_MAX_LIFE) return true
-  const margin = 30
+  const margin = scaled(30, scale)
   return c.x < -margin || c.x > w + margin || c.y < -margin || c.y > h + margin
 }
 
@@ -143,7 +142,7 @@ export function stepVoid(state: VoidState, speed: number, dt: number) {
     if (state.spawnTimer <= 0) {
       const rng = createRng(state.seed + state.spawnNonce * 7919 + 17)
       state.spawnNonce += 1
-      state.comet = spawnComet(rng, w, h)
+      state.comet = spawnComet(rng, w, h, state.scale)
       state.spawnTimer = rng.range(2.5, 6)
     }
     return
@@ -160,7 +159,7 @@ export function stepVoid(state: VoidState, speed: number, dt: number) {
 
   c.life += dt * speed
   advanceComet(c, dt, speed)
-  if (shouldStartFade(c, w, h)) c.fading = true
+  if (shouldStartFade(c, w, h, state.scale)) c.fading = true
 }
 
 function cometFade(c: Comet) {
@@ -172,7 +171,7 @@ function cometFade(c: Comet) {
 const BG = { r: 5, g: 6, b: 9 }
 
 export function drawVoid(ctx: CanvasRenderingContext2D, state: VoidState) {
-  const { width: w, height: h, stars } = state
+  const { width: w, height: h, stars, scale } = state
   if (state.firstFrame) {
     ctx.fillStyle = `rgb(${BG.r},${BG.g},${BG.b})`
     ctx.fillRect(0, 0, w, h)
@@ -191,7 +190,7 @@ export function drawVoid(ctx: CanvasRenderingContext2D, state: VoidState) {
     const amp = s.twAmp * (0.5 + s.z * 0.5)
     const base = 0.2 + s.z * 0.35
     const a = Math.min(1, Math.max(0.06, base + mix * amp * 0.42 - dip * amp * 0.28))
-    const size = s.z * (1.15 + (0.45 + mix * 0.55) * 0.75)
+    const size = scaled(s.z * (1.15 + (0.45 + mix * 0.55) * 0.75), scale)
 
     ctx.fillStyle = `rgba(220, 230, 255, ${a})`
     ctx.beginPath()
@@ -211,7 +210,7 @@ export function drawVoid(ctx: CanvasRenderingContext2D, state: VoidState) {
   if (!c) return
 
   const fade = cometFade(c)
-  const headR = 0.6 + fade * 2.8
+  const headR = scaled(0.6 + fade * 2.8, scale)
 
   for (let i = 0; i < c.trail.length; i++) {
     const along = 1 - i / c.trail.length
@@ -220,7 +219,7 @@ export function drawVoid(ctx: CanvasRenderingContext2D, state: VoidState) {
     if (segFade < 0.02) continue
     ctx.fillStyle = `rgba(200, 230, 255, ${segFade * 0.75})`
     ctx.beginPath()
-    ctx.arc(p.x, p.y, 0.5 + segFade * 2.8, 0, Math.PI * 2)
+    ctx.arc(p.x, p.y, scaled(0.5 + segFade * 2.8, scale), 0, Math.PI * 2)
     ctx.fill()
   }
 
@@ -240,4 +239,5 @@ export function resizeVoid(state: VoidState, w: number, h: number, seed: number,
   state.firstFrame = true
   state.width = w
   state.height = h
+  state.scale = fresh.scale
 }

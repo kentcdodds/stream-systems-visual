@@ -1,3 +1,4 @@
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { randomInCanvas } from '../../simulation/spread-placement'
 import type { CanvasVisualState } from '../../components/canvas-visual-page'
@@ -17,6 +18,7 @@ function pointCount(density: number) {
 
 export function createSparks(seed: number, density: number, w: number, h: number): SparksState {
   const rng = createRng(seed)
+  const { scale } = canvasLayoutFields(w, h)
   const n = pointCount(density)
   const points: Point[] = []
   for (let i = 0; i < n; i++) {
@@ -25,12 +27,12 @@ export function createSparks(seed: number, density: number, w: number, h: number
     points.push({
       x,
       y,
-      vx: r.range(-35, 35),
-      vy: r.range(-35, 35),
+      vx: scaled(r.range(-35, 35), scale),
+      vy: scaled(r.range(-35, 35), scale),
       flicker: r.range(0, Math.PI * 2),
     })
   }
-  return { seed, points, time: 0, width: w, height: h, firstFrame: true }
+  return { seed, points, time: 0, ...canvasLayoutFields(w, h) }
 }
 
 export function stepSparks(state: SparksState, speed: number, dt: number) {
@@ -50,7 +52,7 @@ const BG = { r: 5, g: 6, b: 9 }
 const LINK = 95
 
 export function drawSparks(ctx: CanvasRenderingContext2D, state: SparksState) {
-  const { width: w, height: h, points } = state
+  const { width: w, height: h, points, scale } = state
   if (state.firstFrame) {
     ctx.fillStyle = `rgb(${BG.r},${BG.g},${BG.b})`
     ctx.fillRect(0, 0, w, h)
@@ -59,7 +61,8 @@ export function drawSparks(ctx: CanvasRenderingContext2D, state: SparksState) {
     ctx.fillStyle = `rgba(${BG.r},${BG.g},${BG.b},0.16)`
     ctx.fillRect(0, 0, w, h)
   }
-  const link2 = LINK * LINK
+  const link = scaled(LINK, scale)
+  const link2 = link * link
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (let i = 0; i < points.length; i++) {
@@ -71,10 +74,10 @@ export function drawSparks(ctx: CanvasRenderingContext2D, state: SparksState) {
       const d2 = dx * dx + dy * dy
       if (d2 > link2) continue
       const flick = 0.35 + Math.sin(a.flicker + b.flicker + state.time * 12) * 0.35
-      const t = (1 - Math.sqrt(d2) / LINK) * flick
+      const t = (1 - Math.sqrt(d2) / link) * flick
       ctx.strokeStyle = `rgba(180, 230, 255, ${t})`
-      ctx.lineWidth = 1.2
-      const kink = Math.sin(a.flicker * 2.1 + b.flicker * 1.7 + state.time * 8) * 10
+      ctx.lineWidth = scaled(1.2, scale)
+      const kink = Math.sin(a.flicker * 2.1 + b.flicker * 1.7 + state.time * 8) * scaled(10, scale)
       const mx = (a.x + b.x) / 2 + kink
       const my = (a.y + b.y) / 2 - kink * 0.65
       ctx.beginPath()
@@ -85,7 +88,7 @@ export function drawSparks(ctx: CanvasRenderingContext2D, state: SparksState) {
     }
     ctx.fillStyle = 'rgba(220, 245, 255, 0.8)'
     ctx.beginPath()
-    ctx.arc(a.x, a.y, 2, 0, Math.PI * 2)
+    ctx.arc(a.x, a.y, scaled(2, scale), 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -98,4 +101,5 @@ export function resizeSparks(state: SparksState, w: number, h: number, seed: num
   state.firstFrame = true
   state.width = w
   state.height = h
+  state.scale = fresh.scale
 }

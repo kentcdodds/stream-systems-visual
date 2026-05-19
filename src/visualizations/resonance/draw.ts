@@ -3,25 +3,29 @@
  * Emitters sampled once per frame — not per pixel.
  */
 
+import { scaled, visualScale } from '../../rendering/resolution-scale'
 import { sampleEmitters, type EmitterSample, type ResonanceField } from './emitters'
 
 const BG = { r: 6, g: 8, b: 11 }
 const HI = { r: 105, g: 125, b: 142 }
-const MAX_BUFFER_W = 560
-const MAX_BUFFER_H = 315
 const DIST_FALLOFF = 0.0018
-const BUFFER_SCALE = 0.38
 
-function bufferSize(w: number, h: number) {
-  let bw = Math.max(160, Math.floor(w * BUFFER_SCALE))
-  let bh = Math.max(90, Math.floor(h * BUFFER_SCALE))
-  if (bw > MAX_BUFFER_W) {
-    bh = Math.max(90, Math.floor(bh * (MAX_BUFFER_W / bw)))
-    bw = MAX_BUFFER_W
+function bufferSize(
+  w: number,
+  h: number,
+  maxBufferW: number,
+  maxBufferH: number,
+  bufferScale: number,
+) {
+  let bw = Math.max(160, Math.floor(w * bufferScale))
+  let bh = Math.max(90, Math.floor(h * bufferScale))
+  if (bw > maxBufferW) {
+    bh = Math.max(90, Math.floor(bh * (maxBufferW / bw)))
+    bw = maxBufferW
   }
-  if (bh > MAX_BUFFER_H) {
-    bw = Math.max(160, Math.floor(bw * (MAX_BUFFER_H / bh)))
-    bh = MAX_BUFFER_H
+  if (bh > maxBufferH) {
+    bw = Math.max(160, Math.floor(bw * (maxBufferH / bh)))
+    bh = maxBufferH
   }
   return { bw, bh }
 }
@@ -87,7 +91,11 @@ export function createResonanceDrawer(): ResonanceDrawer {
     const { width: w, height: h } = field
     if (w < 32 || h < 32) return
 
-    const { bw, bh } = bufferSize(w, h)
+    const vs = visualScale(w, h)
+    const maxBufferW = scaled(560, vs)
+    const maxBufferH = scaled(315, vs)
+    const bufferScale = scaled(0.38, vs)
+    const { bw, bh } = bufferSize(w, h, maxBufferW, maxBufferH, bufferScale)
     ensureBuffer(bw, bh)
 
     const data = image.data

@@ -1,3 +1,4 @@
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { randomInCanvas } from '../../simulation/spread-placement'
 import type { CanvasVisualState } from '../../components/canvas-visual-page'
@@ -36,6 +37,7 @@ function count(density: number) {
 
 export function createEmber(seed: number, density: number, w: number, h: number): EmberState {
   const rng = createRng(seed)
+  const { scale } = canvasLayoutFields(w, h)
   const n = count(density)
   const particles: Particle[] = []
   for (let i = 0; i < n; i++) {
@@ -44,8 +46,8 @@ export function createEmber(seed: number, density: number, w: number, h: number)
     const p: Particle = {
       x,
       y,
-      vx: r.range(-18, 18),
-      vy: r.range(-95, -35),
+      vx: scaled(r.range(-18, 18), scale),
+      vy: scaled(r.range(-95, -35), scale),
       life: 0,
       maxLife: 12,
       size: r.range(1.2, 3.2),
@@ -55,15 +57,15 @@ export function createEmber(seed: number, density: number, w: number, h: number)
     p.life = r.range(0, p.maxLife * 0.35)
     particles.push(p)
   }
-  return { seed, particles, time: 0, width: w, height: h, firstFrame: true }
+  return { seed, particles, time: 0, ...canvasLayoutFields(w, h) }
 }
 
-function respawn(p: Particle, rng: ReturnType<typeof createRng>, w: number, h: number) {
+function respawn(p: Particle, rng: ReturnType<typeof createRng>, w: number, h: number, scale: number) {
   p.x = rng.range(0, w)
-  p.y = h + rng.range(0, 40)
+  p.y = h + rng.range(0, scaled(40, scale))
   p.spawnY = p.y
-  p.vx = rng.range(-22, 22)
-  p.vy = rng.range(-110, -40)
+  p.vx = scaled(rng.range(-22, 22), scale)
+  p.vy = scaled(rng.range(-110, -40), scale)
   p.life = 0
   p.size = rng.range(1.2, 3.5)
   assignNaturalLife(p, rng)
@@ -78,10 +80,10 @@ export function stepEmber(state: EmberState, speed: number, dt: number) {
     p.life += dt * speed
     p.x += p.vx * dt * speed
     p.y += p.vy * dt * speed
-    p.vx += Math.sin(state.time * 2 + i) * 8 * dt
+    p.vx += Math.sin(state.time * 2 + i) * scaled(8, state.scale) * dt
     const burnedOut = p.life >= p.maxLife
-    const reachedTop = p.y <= 0 && p.spawnY > 12
-    if (burnedOut || reachedTop || p.y < -60) respawn(p, rng.fork(i), w, h)
+    const reachedTop = p.y <= 0 && p.spawnY > scaled(12, state.scale)
+    if (burnedOut || reachedTop || p.y < -scaled(60, state.scale)) respawn(p, rng.fork(i), w, h, state.scale)
   }
 }
 
@@ -103,13 +105,13 @@ export function drawEmber(ctx: CanvasRenderingContext2D, state: EmberState) {
     const t = Math.max(0, 1 - p.life / p.maxLife)
     const a = t * t * 0.88
     if (a < 0.02) continue
-    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 5)
+    const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * scaled(5, state.scale))
     g.addColorStop(0, `rgba(255, 220, 180, ${a})`)
     g.addColorStop(0.35, `rgba(255, 140, 70, ${a * 0.45})`)
     g.addColorStop(1, 'rgba(80, 40, 20, 0)')
     ctx.fillStyle = g
     ctx.beginPath()
-    ctx.arc(p.x, p.y, p.size * 5, 0, Math.PI * 2)
+    ctx.arc(p.x, p.y, p.size * scaled(5, state.scale), 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
@@ -122,4 +124,5 @@ export function resizeEmber(state: EmberState, w: number, h: number, seed: numbe
   state.firstFrame = true
   state.width = w
   state.height = h
+  state.scale = fresh.scale
 }

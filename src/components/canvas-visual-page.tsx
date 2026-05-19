@@ -4,11 +4,15 @@ import { useVisualRuntime } from '../context/visual-runtime-context'
 import { useAnimationLoop } from '../hooks/use-animation-loop'
 import { useKeyboard } from '../hooks/use-keyboard'
 import { currentDocumentUrl, navigateTo } from '../navigation/navigation-api'
+import { effectiveVisualScale } from '../rendering/resolution-scale'
+import { setupDisplayCanvas } from '../rendering/setup-display-canvas'
 import { getRouteConfig } from '../routes/route-config'
 
 export type CanvasVisualState = {
   width: number
   height: number
+  /** `min(width,height) / 1080` — scales strokes, links, and speeds for 4K vs 1080p. */
+  scale: number
   firstFrame?: boolean
 }
 
@@ -60,25 +64,19 @@ export function createCanvasVisualPage<T extends CanvasVisualState>(
 
     const syncState = useCallback((seed: number, density: number, w: number, h: number) => {
       if (w < 32 || h < 32) return
-      stateRef.current = options.create(seed, density, w, h)
+      const state = options.create(seed, density, w, h)
+      state.scale = effectiveVisualScale(w, h)
+      stateRef.current = state
     }, [])
 
     const setupCanvas = useCallback(() => {
       const canvas = canvasRef.current
       if (!canvas) return false
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
-      const { w, h } = viewportSize()
-      if (w < 32 || h < 32) return false
+      const layout = setupDisplayCanvas(canvas)
+      if (!layout) return false
 
-      const bufferResized =
-        canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)
-      canvas.width = Math.floor(w * dpr)
-      canvas.height = Math.floor(h * dpr)
-      canvas.style.width = `${w}px`
-      canvas.style.height = `${h}px`
-      const ctx = canvas.getContext('2d')
-      if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      const { width: w, height: h, scale, bufferResized } = layout
 
       if (bufferResized) markBufferReset()
 
@@ -89,7 +87,10 @@ export function createCanvasVisualPage<T extends CanvasVisualState>(
       else {
         state.width = w
         state.height = h
+        state.scale = scale
       }
+
+      if (stateRef.current) stateRef.current.scale = scale
 
       return true
     }, [syncState, markBufferReset])

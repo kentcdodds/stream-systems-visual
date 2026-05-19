@@ -2,6 +2,7 @@
  * Rendering: fade the framebuffer, then stroke particle segments.
  */
 
+import { scaled } from '../../rendering/resolution-scale'
 import type { FlowRibbons, RibbonParticle } from './particles'
 
 const BG = '#06080b'
@@ -12,6 +13,7 @@ function strokeParticle(
   ctx: CanvasRenderingContext2D,
   p: RibbonParticle,
   life: number,
+  scale: number,
 ) {
   const alpha = Math.min(1, life * 0.9) * 0.58
   if (alpha < 0.03) return
@@ -21,7 +23,7 @@ function strokeParticle(
   const segLen = Math.hypot(dx, dy)
   if (segLen < 0.15) return
 
-  const width = 0.55 + Math.min(segLen * 0.4, 1.8)
+  const width = scaled(0.55 + Math.min(segLen * 0.4, 1.8), scale)
 
   ctx.strokeStyle = `hsla(${p.hue}, 32%, 58%, ${alpha})`
   ctx.lineWidth = width
@@ -50,6 +52,6 @@ export function drawFlowRibbonsFrame(
 
   for (const p of sim.particles) {
     const life = 1 - p.age / p.maxAge
-    strokeParticle(ctx, p, life)
+    strokeParticle(ctx, p, life, sim.scale)
   }
 }

@@ -6,6 +6,7 @@ import {
 import { writeParamsToSearch, type VisualParams } from '../config/params'
 import { useAnimationLoop } from '../hooks/use-animation-loop'
 import { useKeyboard } from '../hooks/use-keyboard'
+import { setupDisplayCanvas } from '../rendering/setup-display-canvas'
 import { useVisualRuntime } from '../context/visual-runtime-context'
 import { currentDocumentUrl, navigateTo } from '../navigation/navigation-api'
 import { getRouteConfig } from '../routes/route-config'
@@ -52,16 +53,9 @@ export function ResonanceVisualPage() {
     const canvas = canvasRef.current
     if (!canvas) return false
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const { w, h } = viewportSize()
-    if (w < 32 || h < 32) return false
-
-    canvas.width = Math.floor(w * dpr)
-    canvas.height = Math.floor(h * dpr)
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
-    const ctx = canvas.getContext('2d')
-    if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    const layout = setupDisplayCanvas(canvas)
+    if (!layout) return false
+    const { width: w, height: h } = layout
 
     const p = paramsRef.current
     if (!fieldRef.current) syncField(p.seed, p.density, w, h)

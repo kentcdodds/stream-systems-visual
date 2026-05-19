@@ -2,6 +2,7 @@
  * Duel blades: drifting pivots, surge lunges, and aim sway toward center.
  */
 
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { placeSpreadPoints } from '../../simulation/spread-placement'
 
@@ -62,6 +63,7 @@ export type SaberField = {
   time: number
   width: number
   height: number
+  scale: number
   firstFrame: boolean
 }
 
@@ -131,7 +133,7 @@ export function createSaberField(
     })
   }
 
-  return { blades, sparks: [], time: 0, width, height, firstFrame: true }
+  return { blades, sparks: [], time: 0, ...canvasLayoutFields(width, height) }
 }
 
 export function bladeTip(blade: SaberBlade) {
@@ -152,7 +154,7 @@ function emitSparks(field: SaberField, x: number, y: number, intensity: number, 
   const count = Math.min(6, Math.floor(2 + intensity * 5))
   for (let i = 0; i < count && field.sparks.length < MAX_SPARKS; i++) {
     const a = (i / count) * Math.PI * 2 + field.time * 8 + rngSalt
-    const speed = 80 + intensity * 220
+    const speed = scaled(80, field.scale) + intensity * scaled(220, field.scale)
     const life = 0.35 + intensity * 0.35
     field.sparks.push({
       x,
@@ -166,8 +168,8 @@ function emitSparks(field: SaberField, x: number, y: number, intensity: number, 
 }
 
 function detectClashes(field: SaberField) {
-  const { blades } = field
-  const threshold = 36
+  const { blades, scale } = field
+  const threshold = scaled(36, scale)
 
   for (let i = 0; i < blades.length; i++) {
     for (let j = i + 1; j < blades.length; j++) {
@@ -261,11 +263,13 @@ export function resizeSaberField(
   const changed = Math.abs(field.width - width) > 2 || Math.abs(field.height - height) > 2
   field.width = width
   field.height = height
+  field.scale = canvasLayoutFields(width, height).scale
   if (changed && width >= 32 && height >= 32) {
     const fresh = createSaberField(seed, density, width, height)
     field.blades = fresh.blades
     field.sparks = []
     field.time = fresh.time
     field.firstFrame = true
+    field.scale = fresh.scale
   }
 }

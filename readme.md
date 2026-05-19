@@ -23,6 +23,8 @@ npm run preview
 | `seed` | Deterministic RNG seed | per visual |
 | `density` | Scene density `0.15`–`0.85` | per visual |
 | `speed` | Animation speed multiplier | per visual |
+| `scale` | Extra layout multiplier on top of resolution scaling (`0.5`–`2`) | auto from viewport |
+| `dpr` | Canvas pixel ratio cap for sharpness (`1`–`3`) | `min(devicePixelRatio, 2)` |
 | `title` | Stored on `<html data-title>` (not rendered) | — |
 | `subtitle` | `data-subtitle` | — |
 | `startingSoon` | `data-starting-soon` (alias: `soon`) | — |
@@ -81,7 +83,10 @@ Register new visuals in `src/routes/route-config.ts` and `src/routes.ts`.
 ## OBS
 
 1. Add **Browser** source → dev URL or hosted `dist/`
-2. Match stream resolution (e.g. 1920×1080)
-3. Text layers in OBS; query params sync to `document.documentElement.dataset`
+2. Set **Width** and **Height** to your stream canvas (e.g. `3840`×`2160` for 4K, `1920`×`1080` for 1080p)
+3. Enable **Control audio via OBS** if you use background music
+4. Text layers in OBS; query params sync to `document.documentElement.dataset`
+
+Visuals scale from a **1080p reference**: at 4K, strokes, links, and particle sizes grow with the viewport so the scene stays full-frame, not tiny. Optional fine-tune: `?scale=1.1` or `?dpr=2` (heavier GPU).
 
 No on-canvas text by design.

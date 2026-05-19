@@ -1,3 +1,4 @@
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { placeSpreadPoints } from '../../simulation/spread-placement'
 import type { CanvasVisualState } from '../../components/canvas-visual-page'
@@ -17,6 +18,7 @@ function orbCount(density: number) {
 
 export function createDrift(seed: number, density: number, w: number, h: number): DriftState {
   const rng = createRng(seed)
+  const { scale } = canvasLayoutFields(w, h)
   const n = orbCount(density)
   const anchors = placeSpreadPoints(rng.fork(3), n, w, h)
   const orbs: Orb[] = []
@@ -30,11 +32,11 @@ export function createDrift(seed: number, density: number, w: number, h: number)
       rateX: r.range(0.15, 0.45),
       rateY: r.range(0.12, 0.38),
       phase: r.range(0, Math.PI * 2),
-      size: r.range(55, 120),
+      size: scaled(r.range(55, 120), scale),
       hue: r.range(200, 280),
     })
   }
-  return { seed, orbs, time: 0, width: w, height: h, firstFrame: true }
+  return { seed, orbs, time: 0, ...canvasLayoutFields(w, h) }
 }
 
 export function stepDrift(state: DriftState, speed: number, dt: number) {
@@ -78,4 +80,5 @@ export function resizeDrift(state: DriftState, w: number, h: number, seed: numbe
   state.firstFrame = true
   state.width = w
   state.height = h
+  state.scale = fresh.scale
 }

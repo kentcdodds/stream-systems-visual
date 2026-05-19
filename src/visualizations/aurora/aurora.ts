@@ -1,3 +1,4 @@
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { placeSpreadNorm } from '../../simulation/spread-placement'
 import type { CanvasVisualState } from '../../components/canvas-visual-page'
@@ -46,7 +47,7 @@ export function createAurora(seed: number, density: number, w: number, h: number
     })
   }
 
-  return { seed, veils, time: 0, width: w, height: h, firstFrame: true }
+  return { seed, veils, time: 0, ...canvasLayoutFields(w, h) }
 }
 
 export function stepAurora(state: AuroraState, speed: number, dt: number) {
@@ -64,7 +65,7 @@ function veilCenterX(v: Veil, w: number, time: number) {
 const BG = { r: 5, g: 6, b: 9 }
 
 export function drawAurora(ctx: CanvasRenderingContext2D, state: AuroraState) {
-  const { width: w, height: h, veils, time } = state
+  const { width: w, height: h, veils, time, scale } = state
   if (state.firstFrame) {
     ctx.fillStyle = `rgb(${BG.r},${BG.g},${BG.b})`
     ctx.fillRect(0, 0, w, h)
@@ -85,7 +86,7 @@ export function drawAurora(ctx: CanvasRenderingContext2D, state: AuroraState) {
     ctx.fillStyle = g
     ctx.beginPath()
     ctx.moveTo(cx - v.width, 0)
-    for (let y = 0; y <= h; y += 6) {
+    for (let y = 0; y <= h; y += scaled(6, scale)) {
       const dx = Math.sin(y * v.freq + time * 0.6 + v.phase) * v.amp
       ctx.lineTo(cx + dx, y)
     }
@@ -104,4 +105,5 @@ export function resizeAurora(state: AuroraState, w: number, h: number, seed: num
   state.firstFrame = true
   state.width = w
   state.height = h
+  state.scale = fresh.scale
 }

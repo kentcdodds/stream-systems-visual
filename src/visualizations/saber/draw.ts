@@ -2,6 +2,7 @@
  * Layered glow strokes, motion trails, clash blooms, and spark particles.
  */
 
+import { scaled } from '../../rendering/resolution-scale'
 import {
   bladeTip,
   SABER_COLORS,
@@ -23,6 +24,7 @@ function drawBladeStroke(
   y2: number,
   color: SaberColor,
   energy: number,
+  scale: number,
 ) {
   const boost = 0.75 + energy * 0.55
   ctx.save()
@@ -30,17 +32,17 @@ function drawBladeStroke(
   ctx.globalCompositeOperation = 'lighter'
 
   ctx.strokeStyle = color.glow
-  ctx.lineWidth = (14 + energy * 10) * boost
-  ctx.shadowBlur = 28 + energy * 24
+  ctx.lineWidth = scaled((14 + energy * 10) * boost, scale)
+  ctx.shadowBlur = scaled(28 + energy * 24, scale)
   ctx.shadowColor = color.glow
   ctx.beginPath()
   ctx.moveTo(x1, y1)
   ctx.lineTo(x2, y2)
   ctx.stroke()
 
-  ctx.shadowBlur = 14 + energy * 12
+  ctx.shadowBlur = scaled(14 + energy * 12, scale)
   ctx.strokeStyle = color.mid
-  ctx.lineWidth = (4 + energy * 4) * boost
+  ctx.lineWidth = scaled((4 + energy * 4) * boost, scale)
   ctx.beginPath()
   ctx.moveTo(x1, y1)
   ctx.lineTo(x2, y2)
@@ -48,7 +50,7 @@ function drawBladeStroke(
 
   ctx.shadowBlur = 0
   ctx.strokeStyle = color.core
-  ctx.lineWidth = 1.4 + energy * 1.2
+  ctx.lineWidth = scaled(1.4 + energy * 1.2, scale)
   ctx.beginPath()
   ctx.moveTo(x1, y1)
   ctx.lineTo(x2, y2)
@@ -57,17 +59,19 @@ function drawBladeStroke(
   ctx.restore()
 }
 
-function drawHilt(ctx: CanvasRenderingContext2D, blade: SaberBlade) {
+function drawHilt(ctx: CanvasRenderingContext2D, blade: SaberBlade, scale: number) {
   const back = blade.angle + Math.PI
-  const x1 = blade.pivotX + Math.cos(back) * 4
-  const y1 = blade.pivotY + Math.sin(back) * 4
-  const x2 = blade.pivotX + Math.cos(back) * HILT_LEN
-  const y2 = blade.pivotY + Math.sin(back) * HILT_LEN
+  const inset = scaled(4, scale)
+  const x1 = blade.pivotX + Math.cos(back) * inset
+  const y1 = blade.pivotY + Math.sin(back) * inset
+  const hiltLen = scaled(HILT_LEN, scale)
+  const x2 = blade.pivotX + Math.cos(back) * hiltLen
+  const y2 = blade.pivotY + Math.sin(back) * hiltLen
 
   ctx.save()
   ctx.lineCap = 'round'
   ctx.strokeStyle = 'rgba(28, 32, 38, 0.9)'
-  ctx.lineWidth = 5
+  ctx.lineWidth = scaled(5, scale)
   ctx.beginPath()
   ctx.moveTo(x1, y1)
   ctx.lineTo(x2, y2)
@@ -75,10 +79,10 @@ function drawHilt(ctx: CanvasRenderingContext2D, blade: SaberBlade) {
   ctx.restore()
 }
 
-function drawSpark(ctx: CanvasRenderingContext2D, spark: Spark) {
+function drawSpark(ctx: CanvasRenderingContext2D, spark: Spark, scale: number) {
   const t = spark.life / spark.maxLife
   const alpha = t * t * 0.9
-  const r = 1.5 + (1 - t) * 4
+  const r = scaled(1.5 + (1 - t) * 4, scale)
 
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
@@ -94,8 +98,8 @@ function drawSpark(ctx: CanvasRenderingContext2D, spark: Spark) {
 }
 
 function drawClashBlooms(ctx: CanvasRenderingContext2D, field: SaberField) {
-  const { blades, time } = field
-  const threshold = 38
+  const { blades, time, scale } = field
+  const threshold = scaled(38, scale)
 
   for (let i = 0; i < blades.length; i++) {
     for (let j = i + 1; j < blades.length; j++) {
@@ -114,7 +118,7 @@ function drawClashBlooms(ctx: CanvasRenderingContext2D, field: SaberField) {
       const alpha = proximity * proximity * pulse * (0.45 + (a.energy + b.energy) * 0.35)
       if (alpha < 0.03) continue
 
-      const r = 10 + proximity * 28
+      const r = scaled(10 + proximity * 28, scale)
       const g = ctx.createRadialGradient(midX, midY, 0, midX, midY, r)
       g.addColorStop(0, `rgba(250, 252, 255, ${alpha})`)
       g.addColorStop(0.25, `rgba(180, 220, 255, ${alpha * 0.55})`)
@@ -132,7 +136,7 @@ function drawClashBlooms(ctx: CanvasRenderingContext2D, field: SaberField) {
 }
 
 export function drawSaberFrame(ctx: CanvasRenderingContext2D, field: SaberField) {
-  const { width: w, height: h, blades, sparks } = field
+  const { width: w, height: h, blades, sparks, scale } = field
   if (w < 32 || h < 32) return
 
   if (field.firstFrame) {
@@ -147,14 +151,14 @@ export function drawSaberFrame(ctx: CanvasRenderingContext2D, field: SaberField)
   for (const blade of blades) {
     const tip = bladeTip(blade)
     const color = SABER_COLORS[blade.colorIndex % SABER_COLORS.length]
-    drawBladeStroke(ctx, blade.pivotX, blade.pivotY, tip.x, tip.y, color, blade.energy)
-    drawHilt(ctx, blade)
+    drawBladeStroke(ctx, blade.pivotX, blade.pivotY, tip.x, tip.y, color, blade.energy, scale)
+    drawHilt(ctx, blade, scale)
   }
 
   drawClashBlooms(ctx, field)
 
   for (const spark of sparks) {
-    drawSpark(ctx, spark)
+    drawSpark(ctx, spark, scale)
   }
 
   const vignette = ctx.createRadialGradient(

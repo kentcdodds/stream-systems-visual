@@ -1,3 +1,4 @@
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { placeSpreadPoints } from '../../simulation/spread-placement'
 import type { CanvasVisualState } from '../../components/canvas-visual-page'
@@ -49,9 +50,7 @@ export function createPulse(seed: number, density: number, w: number, h: number)
     cells: new Float32Array(cols * rows),
     sources,
     time: 0,
-    width: w,
-    height: h,
-    firstFrame: true,
+    ...canvasLayoutFields(w, h),
   }
 }
 
@@ -78,7 +77,7 @@ export function stepPulse(state: PulseState, speed: number, dt: number) {
 const BG = { r: 5, g: 6, b: 9 }
 
 export function drawPulse(ctx: CanvasRenderingContext2D, state: PulseState) {
-  const { width: w, height: h, cols, rows, cells } = state
+  const { width: w, height: h, cols, rows, cells, scale } = state
   if (state.firstFrame) {
     ctx.fillStyle = `rgb(${BG.r},${BG.g},${BG.b})`
     ctx.fillRect(0, 0, w, h)
@@ -98,8 +97,10 @@ export function drawPulse(ctx: CanvasRenderingContext2D, state: PulseState) {
       const a = Math.min(0.9, Math.pow(Math.abs(v), 0.72) * 0.95)
       if (a < 0.04) continue
       const hue = 198 + v * 38
+      const inset = scaled(1, scale)
+      const shrink = scaled(2, scale)
       ctx.fillStyle = `hsla(${hue}, 72%, 56%, ${a})`
-      ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2)
+      ctx.fillRect(x * cw + inset, y * ch + inset, cw - shrink, ch - shrink)
     }
   }
   ctx.restore()
@@ -115,4 +116,5 @@ export function resizePulse(state: PulseState, w: number, h: number, seed: numbe
   state.firstFrame = true
   state.width = w
   state.height = h
+  state.scale = fresh.scale
 }

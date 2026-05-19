@@ -2,6 +2,7 @@
  * Wave emitters placed deterministically; each drifts on a slow Lissajous path.
  */
 
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import { placeSpreadPoints } from '../../simulation/spread-placement'
 
@@ -30,6 +31,7 @@ export type ResonanceField = {
   time: number
   width: number
   height: number
+  scale: number
 }
 
 function emitterCount(density: number) {
@@ -43,6 +45,8 @@ export function createResonanceField(
   height: number,
 ): ResonanceField {
   const rng = createRng(seed)
+  const layout = canvasLayoutFields(width, height)
+  const scale = layout.scale
   const count = emitterCount(density)
   const positions = placeSpreadPoints(rng.fork(3), count, width, height)
   const emitters: Emitter[] = []
@@ -55,14 +59,14 @@ export function createResonanceField(
       phase: r.range(0, Math.PI * 2),
       frequency: r.range(0.018, 0.038),
       pulseSpeed: r.range(0.7, 1.4),
-      driftA: r.range(18, 55),
-      driftB: r.range(18, 55),
+      driftA: scaled(r.range(18, 55), scale),
+      driftB: scaled(r.range(18, 55), scale),
       driftRateX: r.range(0.04, 0.11),
       driftRateY: r.range(0.035, 0.095),
     })
   }
 
-  return { emitters, time: 0, width, height }
+  return { emitters, time: 0, width: layout.width, height: layout.height, scale: layout.scale }
 }
 
 export function sampleEmitters(field: ResonanceField, time: number): EmitterSample[] {
@@ -92,9 +96,11 @@ export function resizeResonanceField(
   const changed = Math.abs(field.width - width) > 2 || Math.abs(field.height - height) > 2
   field.width = width
   field.height = height
+  field.scale = canvasLayoutFields(width, height).scale
   if (changed && width >= 32 && height >= 32) {
     const fresh = createResonanceField(seed, density, width, height)
     field.emitters = fresh.emitters
     field.time = fresh.time
+    field.scale = fresh.scale
   }
 }

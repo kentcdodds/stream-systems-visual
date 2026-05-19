@@ -1,3 +1,4 @@
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { createRng } from '../../simulation/prng'
 import type { CanvasVisualState } from '../../components/canvas-visual-page'
 
@@ -26,6 +27,7 @@ function heightAt(state: ContourState, x: number, y: number) {
 
 export function createContour(seed: number, density: number, w: number, h: number): ContourState {
   const rng = createRng(seed)
+  const { scale } = canvasLayoutFields(w, h)
   const n = Math.round(3 + density * 4)
   const layers: Layer[] = []
   for (let i = 0; i < n; i++) {
@@ -40,12 +42,10 @@ export function createContour(seed: number, density: number, w: number, h: numbe
   return {
     seed,
     layers,
-    driftX: rng.range(8, 18),
-    driftY: rng.range(6, 14),
+    driftX: scaled(rng.range(8, 18), scale),
+    driftY: scaled(rng.range(6, 14), scale),
     time: 0,
-    width: w,
-    height: h,
-    firstFrame: true,
+    ...canvasLayoutFields(w, h),
   }
 }
 
@@ -56,7 +56,7 @@ export function stepContour(state: ContourState, speed: number, dt: number) {
 const BG = { r: 5, g: 6, b: 9 }
 
 export function drawContour(ctx: CanvasRenderingContext2D, state: ContourState) {
-  const { width: w, height: h } = state
+  const { width: w, height: h, scale } = state
   if (state.firstFrame) {
     ctx.fillStyle = `rgb(${BG.r},${BG.g},${BG.b})`
     ctx.fillRect(0, 0, w, h)
@@ -65,7 +65,7 @@ export function drawContour(ctx: CanvasRenderingContext2D, state: ContourState) 
     ctx.fillStyle = `rgba(${BG.r},${BG.g},${BG.b},0.16)`
     ctx.fillRect(0, 0, w, h)
   }
-  const step = 10
+  const step = scaled(10, scale)
   const levels = 10
   ctx.fillStyle = 'rgba(120, 200, 180, 0.32)'
   for (let li = 0; li < levels; li++) {
@@ -88,7 +88,7 @@ export function drawContour(ctx: CanvasRenderingContext2D, state: ContourState) 
           const px = x0 + (x1 - x0) * t
           const py = y0 + (y1 - y0) * t
           ctx.beginPath()
-          ctx.arc(px, py, 0.6, 0, Math.PI * 2)
+          ctx.arc(px, py, scaled(0.6, scale), 0, Math.PI * 2)
           ctx.fill()
         }
       }
@@ -105,4 +105,5 @@ export function resizeContour(state: ContourState, w: number, h: number, seed: n
   state.firstFrame = true
   state.width = w
   state.height = h
+  state.scale = fresh.scale
 }

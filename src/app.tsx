@@ -1,4 +1,5 @@
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, type ReactNode } from 'react'
+import { BackgroundMusic } from './components/background-music'
 import { useNavigationPath } from './hooks/use-navigation-path'
 import { readCycleInterval, readCycleOptions } from './hooks/use-navigation-search'
 import { CyclePage } from './pages/cycle-page'
@@ -40,18 +41,26 @@ export default function App() {
     replace(systemsRoute.path, window.location.search)
   }, [pathname, replace])
 
+  let page: ReactNode
   if (pathname === cyclePath) {
-    return <CyclePage />
+    page = <CyclePage />
+  } else if (match === null) {
+    page = <NotFoundPage />
+  } else if (match.route === null) {
+    page = <HomePage />
+  } else {
+    const Page = match.route.Page
+    page = (
+      <Suspense fallback={null}>
+        <Page />
+      </Suspense>
+    )
   }
 
-  if (match === null) return <NotFoundPage />
-
-  if (match.route === null) return <HomePage />
-
-  const Page = match.route.Page
   return (
-    <Suspense fallback={null}>
-      <Page />
-    </Suspense>
+    <>
+      <BackgroundMusic />
+      {page}
+    </>
   )
 }

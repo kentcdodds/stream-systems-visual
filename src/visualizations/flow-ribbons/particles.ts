@@ -5,6 +5,7 @@
 
 import { createRng, type Rng } from '../../simulation/prng'
 import { randomInCanvas } from '../../simulation/spread-placement'
+import { canvasLayoutFields, scaled } from '../../rendering/resolution-scale'
 import { fieldDrift, flowAt } from './field'
 
 export type RibbonParticle = {
@@ -23,6 +24,7 @@ export type FlowRibbons = {
   time: number
   width: number
   height: number
+  scale: number
 }
 
 const PALETTE_HUES = [198, 168, 215, 142]
@@ -58,7 +60,8 @@ export function createFlowRibbons(
   for (let i = 0; i < count; i++) {
     particles.push(spawnParticle(rng.fork(i * 13), width, height))
   }
-  return { particles, time: 0, width, height }
+  const layout = canvasLayoutFields(width, height)
+  return { particles, time: 0, width: layout.width, height: layout.height, scale: layout.scale }
 }
 
 function respawn(p: RibbonParticle, rng: Rng, w: number, h: number) {
@@ -83,10 +86,10 @@ export function stepFlowRibbons(
 
   sim.time += dt
   const drift = fieldDrift(sim.time, seed)
-  const step = FLOW_SPEED * speed * dt
+  const step = scaled(FLOW_SPEED, sim.scale) * speed * dt
   const rng = createRng(seed + Math.floor(sim.time * 1000))
 
-  const margin = 32
+  const margin = scaled(32, sim.scale)
   const { width: w, height: h } = sim
 
   for (let i = 0; i < sim.particles.length; i++) {
@@ -116,9 +119,11 @@ export function resizeFlowRibbons(
   const sizeChanged = Math.abs(sim.width - width) > 2 || Math.abs(sim.height - height) > 2
   sim.width = width
   sim.height = height
+  sim.scale = canvasLayoutFields(width, height).scale
   if (!sizeChanged || width < 32 || height < 32) return
 
   const fresh = createFlowRibbons(seed, density, width, height)
   sim.particles = fresh.particles
   sim.time = fresh.time
+  sim.scale = fresh.scale
 }

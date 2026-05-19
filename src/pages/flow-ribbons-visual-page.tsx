@@ -6,6 +6,7 @@ import {
 import { writeParamsToSearch, type VisualParams } from '../config/params'
 import { useAnimationLoop } from '../hooks/use-animation-loop'
 import { useKeyboard } from '../hooks/use-keyboard'
+import { setupDisplayCanvas } from '../rendering/setup-display-canvas'
 import { useVisualRuntime } from '../context/visual-runtime-context'
 import { currentDocumentUrl, navigateTo } from '../navigation/navigation-api'
 import { getRouteConfig } from '../routes/route-config'
@@ -60,19 +61,12 @@ export function FlowRibbonsVisualPage() {
     const canvas = canvasRef.current
     if (!canvas) return null
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    const { w, h } = viewportSize()
-    if (w < 32 || h < 32) return null
-
-    const bufferResized = canvas.width !== Math.floor(w * dpr) || canvas.height !== Math.floor(h * dpr)
-    canvas.width = Math.floor(w * dpr)
-    canvas.height = Math.floor(h * dpr)
-    canvas.style.width = `${w}px`
-    canvas.style.height = `${h}px`
+    const layout = setupDisplayCanvas(canvas)
+    if (!layout) return null
+    const { width: w, height: h, bufferResized } = layout
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return null
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
     if (bufferResized) markBufferReset()
 
