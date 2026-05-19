@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy dist --project-name=stream-systems-visual"
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "react": "^19.1.0",
