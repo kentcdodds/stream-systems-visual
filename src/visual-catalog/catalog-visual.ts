@@ -1,6 +1,7 @@
 import { canvasLayoutFields } from '../rendering/resolution-scale'
 import { catalogById } from './catalog-definitions'
 import * as engines from './engines'
+import * as gap from './engines-gap'
 import type { CatalogEntry, CatalogVisualState } from './types'
 
 function getEntry(visualId: string): CatalogEntry {
@@ -49,6 +50,50 @@ function createData(entry: CatalogEntry, seed: number, density: number, w: numbe
       return engines.createWaves(entry, seed, density, w, h)
     case 'orbit':
       return engines.createOrbit(entry, seed, density, w, h)
+    case 'branch':
+      return gap.createBranch(entry, seed, density, w, h)
+    case 'flock':
+      return gap.createFlock(entry, seed, density, w, h)
+    case 'smoke':
+      return gap.createSmoke(entry, seed, density, w, h)
+    case 'ripple':
+      return gap.createRipple(entry, seed, density, w, h)
+    case 'flame':
+      return gap.createFlame(entry, seed, density, w, h)
+    case 'crystal':
+      return gap.createCrystal(entry, seed, density, w, h)
+    case 'kaleidoscope':
+      return gap.createKaleidoscope(entry, seed, density, w, h)
+    case 'metaball':
+      return gap.createMetaball(entry, seed, density, w, h)
+    case 'voronoi':
+      return gap.createVoronoi(entry, seed, density, w, h)
+    case 'reaction':
+      return gap.createReaction(entry, seed, density, w, h)
+    case 'fractal':
+      return gap.createFractal(entry, seed, density, w, h)
+    case 'magnetic':
+      return gap.createMagnetic(entry, seed, density, w, h)
+    case 'attractor':
+      return gap.createAttractor(entry, seed, density, w, h)
+    case 'nebula':
+      return gap.createNebula(entry, seed, density, w, h)
+    case 'horizon':
+      return gap.createHorizon(entry, seed, density, w, h)
+    case 'circuit':
+      return gap.createCircuit(entry, seed, density, w, h)
+    case 'fabric':
+      return gap.createFabric(entry, seed, density, w, h)
+    case 'blossom':
+      return gap.createBlossom(entry, seed, density, w, h)
+    case 'lightning':
+      return gap.createLightning(entry, seed, density, w, h)
+    case 'tunnel':
+      return gap.createTunnel(entry, seed, density, w, h)
+    case 'breathe':
+      return gap.createBreathe(entry, seed, density, w, h)
+    case 'granular':
+      return gap.createGranular(entry, seed, density, w, h)
     default: {
       const _exhaustive: never = entry.engine
       return _exhaustive
@@ -71,6 +116,7 @@ export function createCatalogVisual(
     time: 0,
     data: createData(entry, seed, density, w, h),
     ...layout,
+    firstFrame: true,
   }
 }
 
@@ -133,6 +179,72 @@ function stepData(state: CatalogVisualState, speed: number, dt: number) {
       break
     case 'orbit':
       engines.stepOrbit(data as never, state, speed, dt)
+      break
+    case 'branch':
+      gap.stepBranch(data as never, state, speed, dt)
+      break
+    case 'flock':
+      gap.stepFlock(data as never, state, speed, dt)
+      break
+    case 'smoke':
+      gap.stepSmoke(data as never, state, speed, dt)
+      break
+    case 'ripple':
+      gap.stepRipple(data as never, state, speed, dt)
+      break
+    case 'flame':
+      gap.stepFlame(data as never, state, speed, dt)
+      break
+    case 'crystal':
+      gap.stepCrystal(data as never, state, speed, dt)
+      break
+    case 'kaleidoscope':
+      gap.stepKaleidoscope(data as never, state, speed, dt)
+      break
+    case 'metaball':
+      gap.stepMetaball(data as never, state, speed, dt)
+      break
+    case 'voronoi':
+      gap.stepVoronoi(data as never, state, speed, dt)
+      break
+    case 'reaction':
+      gap.stepReaction(data as never, state, speed, dt)
+      break
+    case 'fractal':
+      gap.stepFractal(data as never, state, speed, dt)
+      break
+    case 'magnetic':
+      gap.stepMagnetic(data as never, state, speed, dt)
+      break
+    case 'attractor':
+      gap.stepAttractor(data as never, state, speed, dt)
+      break
+    case 'nebula':
+      gap.stepNebula(data as never, state, speed, dt)
+      break
+    case 'horizon':
+      gap.stepHorizon(data as never, state, speed, dt)
+      break
+    case 'circuit':
+      gap.stepCircuit(data as never, state, speed, dt)
+      break
+    case 'fabric':
+      gap.stepFabric(data as never, state, speed, dt)
+      break
+    case 'blossom':
+      gap.stepBlossom(data as never, state, speed, dt)
+      break
+    case 'lightning':
+      gap.stepLightning(data as never, state, speed, dt)
+      break
+    case 'tunnel':
+      gap.stepTunnel(data as never, state, speed, dt)
+      break
+    case 'breathe':
+      gap.stepBreathe(data as never, state, speed, dt)
+      break
+    case 'granular':
+      gap.stepGranular(data as never, state, speed, dt)
       break
     default: {
       const _exhaustive: never = entry.engine
@@ -200,6 +312,72 @@ function drawData(ctx: CanvasRenderingContext2D, state: CatalogVisualState) {
       break
     case 'orbit':
       engines.drawOrbit(ctx, entry, data as never, state)
+      break
+    case 'branch':
+      gap.drawBranch(ctx, entry, data as never, state)
+      break
+    case 'flock':
+      gap.drawFlock(ctx, entry, data as never, state)
+      break
+    case 'smoke':
+      gap.drawSmoke(ctx, entry, data as never, state)
+      break
+    case 'ripple':
+      gap.drawRipple(ctx, entry, data as never, state)
+      break
+    case 'flame':
+      gap.drawFlame(ctx, entry, data as never, state)
+      break
+    case 'crystal':
+      gap.drawCrystal(ctx, entry, data as never, state)
+      break
+    case 'kaleidoscope':
+      gap.drawKaleidoscope(ctx, entry, data as never, state)
+      break
+    case 'metaball':
+      gap.drawMetaball(ctx, entry, data as never, state)
+      break
+    case 'voronoi':
+      gap.drawVoronoi(ctx, entry, data as never, state)
+      break
+    case 'reaction':
+      gap.drawReaction(ctx, entry, data as never, state)
+      break
+    case 'fractal':
+      gap.drawFractal(ctx, entry, data as never, state)
+      break
+    case 'magnetic':
+      gap.drawMagnetic(ctx, entry, data as never, state)
+      break
+    case 'attractor':
+      gap.drawAttractor(ctx, entry, data as never, state)
+      break
+    case 'nebula':
+      gap.drawNebula(ctx, entry, data as never, state)
+      break
+    case 'horizon':
+      gap.drawHorizon(ctx, entry, data as never, state)
+      break
+    case 'circuit':
+      gap.drawCircuit(ctx, entry, data as never, state)
+      break
+    case 'fabric':
+      gap.drawFabric(ctx, entry, data as never, state)
+      break
+    case 'blossom':
+      gap.drawBlossom(ctx, entry, data as never, state)
+      break
+    case 'lightning':
+      gap.drawLightning(ctx, entry, data as never, state)
+      break
+    case 'tunnel':
+      gap.drawTunnel(ctx, entry, data as never, state)
+      break
+    case 'breathe':
+      gap.drawBreathe(ctx, entry, data as never, state)
+      break
+    case 'granular':
+      gap.drawGranular(ctx, entry, data as never, state)
       break
     default: {
       const _exhaustive: never = entry.engine

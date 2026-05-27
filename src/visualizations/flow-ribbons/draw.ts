@@ -15,7 +15,7 @@ function strokeParticle(
   life: number,
   scale: number,
 ) {
-  const alpha = Math.min(1, life * 0.9) * 0.58
+  const alpha = Math.min(1, life * 0.9) * 0.78
   if (alpha < 0.03) return
 
   const dx = p.x - p.prevX

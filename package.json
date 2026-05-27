@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "capture-thumbnails": "npm run build && tsx scripts/capture-thumbnails.ts",
-    "capture-thumbnails:only": "tsx scripts/capture-thumbnails.ts",
+    "capture-thumbnails": "npm run build && node scripts/capture-thumbnails.ts",
+    "capture-thumbnails:only": "node scripts/capture-thumbnails.ts",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
@@ -20,7 +20,6 @@
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "playwright": "^1.52.0",
-    "tsx": "^4.19.4",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",
     "wrangler": "^4.14.0"

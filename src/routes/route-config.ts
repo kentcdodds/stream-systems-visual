@@ -1,6 +1,6 @@
 /** Route metadata only — safe to import from pages without circular deps */
 
-import { catalogRouteConfigs } from '../visual-catalog/catalog-routes'
+import { catalogRouteConfigs } from '../visual-catalog/catalog-routes.ts'
 
 export const homePath = '/'
 

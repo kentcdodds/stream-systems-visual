@@ -36,6 +36,7 @@ export function FlowRibbonsVisualPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const simRef = useRef<FlowRibbons | null>(null)
   const firstFrameRef = useRef(true)
+  const warmupFramesRef = useRef(0)
   const pausedRef = useRef(false)
   const paramsRef = useRef<VisualParams>(readFlowRibbonsParams(window.location.search))
 
@@ -49,6 +50,7 @@ export function FlowRibbonsVisualPage() {
 
   const markBufferReset = useCallback(() => {
     firstFrameRef.current = true
+    warmupFramesRef.current = 200
   }, [])
 
   const syncSim = useCallback((seed: number, density: number, w: number, h: number) => {
@@ -111,6 +113,17 @@ export function FlowRibbonsVisualPage() {
     if (!ctx) return
 
     const p = paramsRef.current
+    if (warmupFramesRef.current > 0) {
+      const burst = Math.min(warmupFramesRef.current, 8)
+      for (let i = 0; i < burst; i++) {
+        stepFlowRibbons(sim, p.seed, p.speed, 1 / 60)
+        drawFlowRibbonsFrame(ctx, sim, firstFrameRef.current)
+        firstFrameRef.current = false
+      }
+      warmupFramesRef.current -= burst
+      return
+    }
+
     if (!pausedRef.current) stepFlowRibbons(sim, p.seed, p.speed, dt)
 
     drawFlowRibbonsFrame(ctx, sim, firstFrameRef.current)

@@ -1,5 +1,5 @@
-import type { VisualizationRouteConfig } from '../routes/route-config'
-import { catalogDefinitions } from './catalog-definitions'
+import type { VisualizationRouteConfig } from '../routes/route-config.ts'
+import { catalogDefinitions } from './catalog-definitions.ts'
 
 export const catalogRouteConfigs: VisualizationRouteConfig[] = catalogDefinitions.map(entry => ({
   id: entry.id,

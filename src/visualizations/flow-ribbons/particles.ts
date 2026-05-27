@@ -61,7 +61,11 @@ export function createFlowRibbons(
     particles.push(spawnParticle(rng.fork(i * 13), width, height))
   }
   const layout = canvasLayoutFields(width, height)
-  return { particles, time: 0, width: layout.width, height: layout.height, scale: layout.scale }
+  const sim = { particles, time: 0, width: layout.width, height: layout.height, scale: layout.scale }
+  for (let frame = 0; frame < 240; frame++) {
+    stepFlowRibbons(sim, seed, 1, 1 / 60)
+  }
+  return sim
 }
 
 function respawn(p: RibbonParticle, rng: Rng, w: number, h: number) {

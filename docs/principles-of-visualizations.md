@@ -78,7 +78,7 @@ Before merging a new or changed visual:
 - [ ] Same URL params → same frame after reload.
 - [ ] No runaway CPU from particle count or O(n²) links on large N.
 - [ ] Distinct from an existing route (motion **and** composition, not just hue).
-- [ ] Homepage thumbnail updated: `npm run capture-thumbnails` (or `:only` after build).
+- [ ] Homepage thumbnail updated: `npm run capture-thumbnails` (or `:only` after build). The capture script waits several seconds for the canvas to warm up and polls pixel brightness before screenshotting; pass route ids to recapture specific tiles.
 
 ## Navigation and OBS integration
 
