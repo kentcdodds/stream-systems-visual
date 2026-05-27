@@ -46,6 +46,18 @@ const DriftVisualPage = lazy(() =>
 const ContourVisualPage = lazy(() =>
   import('./pages/contour-visual-page').then(m => ({ default: m.ContourVisualPage })),
 )
+const LightBikeVisualPage = lazy(() =>
+  import('./pages/light-bike-visual-page').then(m => ({ default: m.LightBikeVisualPage })),
+)
+const SnakeVisualPage = lazy(() =>
+  import('./pages/snake-visual-page').then(m => ({ default: m.SnakeVisualPage })),
+)
+const HarmonicStringsVisualPage = lazy(() =>
+  import('./pages/harmonic-strings-visual-page').then(m => ({ default: m.HarmonicStringsVisualPage })),
+)
+const SolarVoyageVisualPage = lazy(() =>
+  import('./pages/solar-voyage-visual-page').then(m => ({ default: m.SolarVoyageVisualPage })),
+)
 const CatalogVisualPage = lazy(() =>
   import('./pages/catalog-visual-page').then(m => ({ default: m.CatalogVisualPage })),
 )
@@ -78,6 +90,10 @@ export const visualizationPagesById = {
   sparks: SparksVisualPage,
   drift: DriftVisualPage,
   contour: ContourVisualPage,
+  'light-bike': LightBikeVisualPage,
+  snake: SnakeVisualPage,
+  'harmonic-strings': HarmonicStringsVisualPage,
+  'solar-voyage': SolarVoyageVisualPage,
   ...Object.fromEntries(catalogDefinitions.map(d => [d.id, CatalogVisualPage])),
 } satisfies Record<string, ComponentType>
 

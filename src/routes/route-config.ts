@@ -112,6 +112,30 @@ export const visualizationRouteConfigs: VisualizationRouteConfig[] = [
     label: 'Contour',
     ariaLabel: 'Drifting contour field',
   },
+  {
+    id: 'light-bike',
+    path: '/v/light-bike',
+    label: 'Light Bike',
+    ariaLabel: 'Tron-style light cycle trails',
+  },
+  {
+    id: 'snake',
+    path: '/v/snake',
+    label: 'Snake',
+    ariaLabel: 'Autonomous snake game',
+  },
+  {
+    id: 'harmonic-strings',
+    path: '/v/harmonic-strings',
+    label: 'Harmonic Strings',
+    ariaLabel: 'Multiple figure-eight curve tracers',
+  },
+  {
+    id: 'solar-voyage',
+    path: '/v/solar-voyage',
+    label: 'Solar Voyage',
+    ariaLabel: 'Solar system drifting through space',
+  },
   ...catalogRouteConfigs,
 ]
 

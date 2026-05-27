@@ -1120,12 +1120,61 @@ type HorizonStar = {
   tilt: number
 }
 
-type HorizonData = { peaks: number[], stars: HorizonStar[] }
+type HorizonShootingStar = {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  fading: boolean
+  fadeT: number
+  trail: { x: number, y: number }[]
+}
 
-function horizonStarTwinkle(s: HorizonStar, t: number) {
+type HorizonData = {
+  peaks: number[]
+  stars: HorizonStar[]
+  shooting: HorizonShootingStar | null
+  spawnTimer: number
+  spawnNonce: number
+}
+
+function horizonStarScintillation(s: HorizonStar, t: number) {
   const slow = Math.sin(t * s.twRate * 0.55 + s.tw)
   const mid = Math.sin(t * s.twRate * 1.85 + s.tw * 1.37)
-  return slow * 0.6 + mid * 0.4
+  const fast = Math.sin(t * s.twRate * 5.2 + s.tw * 2.11)
+  const dip = Math.pow(Math.max(0, Math.sin(t * s.twRate * 0.31 + s.tw * 0.5)), 6)
+  const mix = slow * 0.42 + mid * 0.33 + fast * 0.25
+  return { mix, dip }
+}
+
+function spawnHorizonShootingStar(
+  rng: Rng,
+  w: number,
+  skyH: number,
+  scale: number,
+): HorizonShootingStar {
+  const x = rng.range(-w * 0.05, w * 1.05)
+  const y = rng.range(0, skyH * 0.55)
+  const angle = rng.range(Math.PI * 0.15, Math.PI * 0.55)
+  const speed = scaled(rng.range(280, 480), scale)
+  return {
+    x,
+    y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    life: 0,
+    fading: false,
+    fadeT: 0,
+    trail: [],
+  }
+}
+
+function advanceHorizonShootingStar(c: HorizonShootingStar, dt: number, speed: number) {
+  c.x += c.vx * dt * speed
+  c.y += c.vy * dt * speed
+  c.trail.unshift({ x: c.x, y: c.y })
+  if (c.trail.length > 24) c.trail.pop()
 }
 
 export function createHorizon(entry: CatalogEntry, seed: number, density: number, w: number, h: number): HorizonData {
@@ -1153,10 +1202,39 @@ export function createHorizon(entry: CatalogEntry, seed: number, density: number
       tilt: r.range(0, Math.PI * 2),
     })
   }
-  return { peaks, stars }
+  return { peaks, stars, shooting: null, spawnTimer: rng.range(2.5, 5.5), spawnNonce: 0 }
 }
 
-export function stepHorizon(_data: HorizonData, _state: CatalogVisualState, _speed: number, _dt: number) {}
+export function stepHorizon(data: HorizonData, state: CatalogVisualState, speed: number, dt: number) {
+  const skyH = state.height * 0.62 * 0.58
+  const { scale, seed } = state
+
+  if (!data.shooting) {
+    data.spawnTimer -= dt * speed
+    if (data.spawnTimer <= 0) {
+      const rng = createRng(seed + data.spawnNonce * 7919 + 41)
+      data.spawnNonce += 1
+      data.shooting = spawnHorizonShootingStar(rng, state.width, skyH, scale)
+      data.spawnTimer = rng.range(3, 7)
+    }
+    return
+  }
+
+  const c = data.shooting
+  if (c.fading) {
+    c.fadeT += dt * speed
+    advanceHorizonShootingStar(c, dt, speed)
+    if (c.fadeT >= 1.8) data.shooting = null
+    return
+  }
+
+  c.life += dt * speed
+  advanceHorizonShootingStar(c, dt, speed)
+  const margin = scaled(40, scale)
+  if (c.life >= 2.2 || c.x < -margin || c.x > state.width + margin || c.y > skyH + margin) {
+    c.fading = true
+  }
+}
 
 export function drawHorizon(ctx: CanvasRenderingContext2D, entry: CatalogEntry, data: HorizonData, state: CatalogVisualState) {
   const pal = paletteAt(entry.palette)
@@ -1169,10 +1247,11 @@ export function drawHorizon(ctx: CanvasRenderingContext2D, entry: CatalogEntry, 
   for (const s of data.stars) {
     const x = s.nx * w
     const y = s.ny * skyH
-    const tw = horizonStarTwinkle(s, time)
-    const amp = s.twAmp * (0.45 + s.z * 0.55)
-    const a = Math.min(0.32, Math.max(0.03, 0.06 + s.z * 0.14 + tw * amp * 0.08))
-    const r = scaled(s.z * (0.45 + (0.5 + tw * 0.5) * 0.55), scale)
+    const { mix, dip } = horizonStarScintillation(s, time)
+    const amp = s.twAmp * (0.5 + s.z * 0.5)
+    const base = 0.06 + s.z * 0.14
+    const a = Math.min(0.38, Math.max(0.03, base + mix * amp * 0.1 - dip * amp * 0.06))
+    const r = scaled(s.z * (0.45 + (0.45 + mix * 0.55) * 0.6), scale)
 
     if (s.style >= 1) {
       ctx.fillStyle = hsl(entry, 0, 72 + s.z * 12, a * 0.3)
@@ -1203,6 +1282,26 @@ export function drawHorizon(ctx: CanvasRenderingContext2D, entry: CatalogEntry, 
     }
     ctx.fill()
   }
+
+  const shooting = data.shooting
+  if (shooting) {
+    const fade = shooting.fading ? Math.max(0, 1 - shooting.fadeT / 1.8) : 1
+    for (let i = 0; i < shooting.trail.length; i++) {
+      const along = 1 - i / shooting.trail.length
+      const p = shooting.trail[i]
+      const segFade = fade * along * along
+      if (segFade < 0.02) continue
+      ctx.fillStyle = hsl(entry, 0, 82, segFade * 0.55)
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, scaled(0.4 + segFade * 2.2, scale), 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.fillStyle = hsl(entry, 0, 92, fade * 0.85)
+    ctx.beginPath()
+    ctx.arc(shooting.x, shooting.y, scaled(1.2 + fade * 2, scale), 0, Math.PI * 2)
+    ctx.fill()
+  }
+
   ctx.fillStyle = `rgb(${pal.bg.r + 4},${pal.bg.g + 4},${pal.bg.b + 6})`
   ctx.beginPath()
   ctx.moveTo(0, h)
