@@ -584,14 +584,86 @@ export function drawVoronoi(ctx: CanvasRenderingContext2D, entry: CatalogEntry, 
   ctx.restore()
 }
 
-// --- Reaction (Gray-Scott lite) ---
+// --- Reaction (Gray-Scott) ---
+const REACTION_PARAMS = [
+  { f: 0.0545, k: 0.062 },
+  { f: 0.0367, k: 0.0649 },
+  { f: 0.078, k: 0.061 },
+] as const
+
+function reactionParams(variant: number) {
+  return REACTION_PARAMS[variant % REACTION_PARAMS.length]
+}
+
+function hslToRgb(h: number, s: number, l: number) {
+  const c = (1 - Math.abs(2 * l - 1)) * s
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+  const m = l - c / 2
+  let r = 0
+  let g = 0
+  let b = 0
+  if (h < 60) {
+    r = c
+    g = x
+  } else if (h < 120) {
+    r = x
+    g = c
+  } else if (h < 180) {
+    g = c
+    b = x
+  } else if (h < 240) {
+    g = x
+    b = c
+  } else if (h < 300) {
+    r = x
+    b = c
+  } else {
+    r = c
+    b = x
+  }
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
+  }
+}
+
 type ReactionData = {
   w: number
   h: number
   a: Float32Array
   b: Float32Array
-  buf: Float32Array
+  nextA: Float32Array
+  nextB: Float32Array
   tick: number
+  offscreen: HTMLCanvasElement | null
+}
+
+function seedReactionGrid(
+  w: number,
+  h: number,
+  b: Float32Array,
+  rng: Rng,
+) {
+  const n = w * h
+  for (let blob = 0; blob < 5; blob++) {
+    const r = rng.fork(blob * 43 + 7)
+    const cx = Math.floor(r.range(w * 0.18, w * 0.82))
+    const cy = Math.floor(r.range(h * 0.18, h * 0.82))
+    const rad = r.int(2, 5)
+    for (let dy = -rad; dy <= rad; dy++) {
+      for (let dx = -rad; dx <= rad; dx++) {
+        if (dx * dx + dy * dy > rad * rad) continue
+        const x = cx + dx
+        const y = cy + dy
+        if (x <= 0 || x >= w - 1 || y <= 0 || y >= h - 1) continue
+        b[y * w + x] = 1
+      }
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    if (rng.next() > 0.94) b[i] = rng.range(0.35, 1)
+  }
 }
 
 export function createReaction(entry: CatalogEntry, seed: number, _density: number, cw: number, ch: number): ReactionData {
@@ -601,34 +673,40 @@ export function createReaction(entry: CatalogEntry, seed: number, _density: numb
   const n = w * h
   const a = new Float32Array(n).fill(1)
   const b = new Float32Array(n)
-  for (let i = 0; i < n; i++) {
-    if (rng.next() > 0.55 - entry.variant * 0.05) b[i] = rng.range(0.2, 1)
+  seedReactionGrid(w, h, b, rng)
+  return {
+    w,
+    h,
+    a,
+    b,
+    nextA: new Float32Array(n),
+    nextB: new Float32Array(n),
+    tick: 0,
+    offscreen: null,
   }
-  return { w, h, a, b, buf: new Float32Array(n), tick: 0 }
 }
 
-export function stepReaction(data: ReactionData, _state: CatalogVisualState, speed: number, dt: number) {
+export function stepReaction(data: ReactionData, state: CatalogVisualState, speed: number, dt: number) {
   data.tick += dt * speed
   if (data.tick < 0.04) return
   data.tick = 0
-  const { w, h, a, b, buf } = data
-  const f = 0.036
-  const k = 0.065
-  const da = 1
-  const db = 0.5
+  const { w, h, a, b, nextA, nextB } = data
+  const { f, k } = reactionParams(state.entry.variant)
+  const step = 0.16
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       const i = y * w + x
-      const lapA =
-        a[i - 1] + a[i + 1] + a[i - w] + a[i + w] - 4 * a[i]
-      const lapB =
-        b[i - 1] + b[i + 1] + b[i - w] + b[i + w] - 4 * b[i]
+      const lapA = a[i - 1] + a[i + 1] + a[i - w] + a[i + w] - 4 * a[i]
+      const lapB = b[i - 1] + b[i + 1] + b[i - w] + b[i + w] - 4 * b[i]
       const reaction = a[i] * b[i] * b[i]
-      buf[i] = b[i] + (db * lapB - reaction + k * (1 - b[i])) * 0.9
-      a[i] = a[i] + (da * lapA - reaction + f * (1 - a[i])) * 0.9
+      nextB[i] = b[i] + (0.5 * lapB + reaction - (k + f) * b[i]) * step
+      nextA[i] = a[i] + (lapA - reaction + f * (1 - a[i])) * step
     }
   }
-  for (let i = 0; i < a.length; i++) b[i] = buf[i]
+  for (let i = 0; i < a.length; i++) {
+    a[i] = nextA[i]
+    b[i] = nextB[i]
+  }
 }
 
 export function drawReaction(ctx: CanvasRenderingContext2D, entry: CatalogEntry, data: ReactionData, state: CatalogVisualState) {
@@ -636,27 +714,33 @@ export function drawReaction(ctx: CanvasRenderingContext2D, entry: CatalogEntry,
   const { width: cw, height: ch } = state
   state.firstFrame = clearFrame(ctx, cw, ch, pal, state.firstFrame)
   const { w, h, b } = data
-  const img = ctx.createImageData(w, h)
+  if (!data.offscreen) {
+    data.offscreen = document.createElement('canvas')
+    data.offscreen.width = w
+    data.offscreen.height = h
+  }
+  const octx = data.offscreen.getContext('2d')
+  if (!octx) return
+  const img = octx.createImageData(w, h)
   for (let i = 0; i < b.length; i++) {
     const v = Math.max(0, Math.min(1, b[i]))
     const o = i * 4
+    if (v < 0.04) {
+      img.data[o + 3] = 0
+      continue
+    }
     const hue = pal.hue + v * pal.accent
-    img.data[o] = pal.bg.r + v * 80
-    img.data[o + 1] = pal.bg.g + v * 60
-    img.data[o + 2] = pal.bg.b + v * 100
-    img.data[o + 3] = Math.floor(40 + v * 180)
-    void hue
+    const { r, g, b: blue } = hslToRgb(hue, 0.72, 0.42 + v * 0.28)
+    img.data[o] = r
+    img.data[o + 1] = g
+    img.data[o + 2] = blue
+    img.data[o + 3] = Math.floor(70 + v * 185)
   }
-  const off = document.createElement('canvas')
-  off.width = w
-  off.height = h
-  const octx = off.getContext('2d')
-  if (!octx) return
   octx.putImageData(img, 0, 0)
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   ctx.imageSmoothingEnabled = true
-  ctx.drawImage(off, 0, 0, cw, ch)
+  ctx.drawImage(data.offscreen, 0, 0, cw, ch)
   ctx.restore()
 }
 
@@ -708,57 +792,203 @@ export function drawFractal(ctx: CanvasRenderingContext2D, entry: CatalogEntry, 
 }
 
 // --- Magnetic ---
-type MagneticData = { poles: { x: number, y: number, charge: number }[] }
+type MagneticPole = {
+  bx: number
+  by: number
+  charge: number
+  orbitR: number
+  orbitPhase: number
+  orbitSpeed: number
+}
 
-export function createMagnetic(entry: CatalogEntry, _seed: number, _density: number, w: number, h: number): MagneticData {
-  return {
-    poles: [
-      { x: w * 0.35, y: h * 0.5, charge: 1 },
-      { x: w * 0.65, y: h * 0.5, charge: entry.variant % 2 === 0 ? -1 : 1 },
-    ],
+type MagneticSeed = { x: number, y: number, phase: number }
+
+type MagneticData = { poles: MagneticPole[], seeds: MagneticSeed[] }
+
+function magneticFieldDir(
+  poles: { x: number, y: number, charge: number }[],
+  x: number,
+  y: number,
+  soft: number,
+  strength: number,
+) {
+  let fx = 0
+  let fy = 0
+  for (const p of poles) {
+    const dx = x - p.x
+    const dy = y - p.y
+    const d2 = dx * dx + dy * dy + soft
+    const d = Math.sqrt(d2)
+    const f = (p.charge * strength) / d2
+    fx += (dx / d) * f
+    fy += (dy / d) * f
   }
+  const mag = Math.hypot(fx, fy) || 1
+  return { fx: fx / mag, fy: fy / mag }
+}
+
+function magneticPolesAt(data: MagneticData, t: number) {
+  return data.poles.map(p => ({
+    x: p.bx + Math.cos(t * p.orbitSpeed + p.orbitPhase) * p.orbitR,
+    y: p.by + Math.sin(t * p.orbitSpeed * 0.75 + p.orbitPhase * 1.1) * p.orbitR * 0.7,
+    charge: p.charge,
+  }))
+}
+
+export function createMagnetic(entry: CatalogEntry, seed: number, density: number, w: number, h: number): MagneticData {
+  const { rng } = baseCtx(entry, seed, w, h)
+  const lim = viewportMin(w, h)
+  const r0 = rng.fork(0)
+  const r1 = rng.fork(1)
+  const opposite = entry.variant % 2 === 0
+  const poles: MagneticPole[] = [
+    {
+      bx: r0.range(w * 0.22, w * 0.42),
+      by: r0.range(h * 0.35, h * 0.65),
+      charge: 1,
+      orbitR: r0.range(lim * 0.018, lim * 0.045),
+      orbitPhase: r0.range(0, Math.PI * 2),
+      orbitSpeed: r0.range(0.08, 0.16),
+    },
+    {
+      bx: r1.range(w * 0.58, w * 0.78),
+      by: r1.range(h * 0.35, h * 0.65),
+      charge: opposite ? -1 : 1,
+      orbitR: r1.range(lim * 0.018, lim * 0.045),
+      orbitPhase: r1.range(0, Math.PI * 2),
+      orbitSpeed: r1.range(0.08, 0.16),
+    },
+  ]
+  const n = particleCount(density, 18, 28, 52)
+  const seeds: MagneticSeed[] = []
+  for (let i = 0; i < n; i++) {
+    const r = rng.fork(i * 13 + 7)
+    const edge = r.int(0, 3)
+    let x: number
+    let y: number
+    if (edge === 0) {
+      x = r.range(0.05, 0.95) * w
+      y = r.range(0.02, 0.12) * h
+    } else if (edge === 1) {
+      x = r.range(0.88, 0.98) * w
+      y = r.range(0.08, 0.92) * h
+    } else if (edge === 2) {
+      x = r.range(0.05, 0.95) * w
+      y = r.range(0.88, 0.98) * h
+    } else {
+      x = r.range(0.02, 0.12) * w
+      y = r.range(0.08, 0.92) * h
+    }
+    seeds.push({ x, y, phase: r.range(0, 1) })
+  }
+  return { poles, seeds }
 }
 
 export function stepMagnetic(_data: MagneticData, _state: CatalogVisualState, _speed: number, _dt: number) {}
 
 export function drawMagnetic(ctx: CanvasRenderingContext2D, entry: CatalogEntry, data: MagneticData, state: CatalogVisualState) {
   const pal = paletteAt(entry.palette)
-  const { width: w, height: h, scale } = state
+  const { width: w, height: h, scale, time } = state
+  const lim = viewportMin(w, h)
   state.firstFrame = clearFrame(ctx, w, h, pal, state.firstFrame)
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   ctx.lineWidth = scaled(1, scale)
-  const seeds = 24
-  for (let s = 0; s < seeds; s++) {
-    let x = (s + 0.5) * (w / seeds)
-    let y = h * 0.15
+  const soft = lim * lim * 0.0004
+  const strength = lim * lim * 0.014
+  const stepLen = scaled(6, scale)
+  const poles = magneticPolesAt(data, time)
+  for (let si = 0; si < data.seeds.length; si++) {
+    const seed = data.seeds[si]
+    const drift = time * 0.04 + seed.phase * Math.PI * 2
+    let x = seed.x + Math.sin(drift) * scaled(8, scale)
+    let y = seed.y + Math.cos(drift * 0.8) * scaled(6, scale)
     ctx.beginPath()
     ctx.moveTo(x, y)
-    for (let step = 0; step < 80; step++) {
-      let fx = 0
-      let fy = 0
-      for (const p of data.poles) {
-        const dx = x - p.x
-        const dy = y - p.y
-        const d2 = dx * dx + dy * dy + 800
-        const f = (p.charge * 8000) / d2
-        fx += (dx / Math.sqrt(d2)) * f
-        fy += (dy / Math.sqrt(d2)) * f
-      }
-      const mag = Math.hypot(fx, fy) || 1
-      x += (fx / mag) * scaled(6, scale)
-      y += (fy / mag) * scaled(6, scale)
+    for (let step = 0; step < 90; step++) {
+      const { fx, fy } = magneticFieldDir(poles, x, y, soft, strength)
+      x += fx * stepLen
+      y += fy * stepLen
       ctx.lineTo(x, y)
-      if (x < 0 || x > w || y < 0 || y > h) break
+      if (x < -stepLen || x > w + stepLen || y < -stepLen || y > h + stepLen) break
     }
-    ctx.strokeStyle = hsl(entry, s * 4, 58, 0.22)
+    const pulse = 0.16 + 0.08 * Math.sin(time * 1.6 + si * 0.5)
+    ctx.strokeStyle = hsl(entry, si * 4, 58, pulse)
     ctx.stroke()
   }
   ctx.restore()
 }
 
 // --- Attractor (strange loop trace) ---
-type AttractorData = { t: number, trail: { x: number, y: number }[] }
+type AttractorPoint = { x: number, y: number }
+type AttractorData = { t: number, trail: AttractorPoint[] }
+
+function attractorDist(a: AttractorPoint, b: AttractorPoint) {
+  return Math.hypot(b.x - a.x, b.y - a.y)
+}
+
+function attractorLineDist(p: AttractorPoint, a: AttractorPoint, b: AttractorPoint) {
+  const len = attractorDist(a, b) || 1
+  return Math.abs((b.y - a.y) * p.x - (b.x - a.x) * p.y + b.x * a.y - b.y * a.x) / len
+}
+
+function attractorShouldSkipStraight(
+  trail: AttractorPoint[],
+  runStart: number,
+  i: number,
+  maxStraight: number,
+  maxDev: number,
+) {
+  if (i - runStart < 2) return false
+  const start = trail[runStart]
+  const end = trail[i]
+  const chord = attractorDist(end, start)
+  if (chord <= maxStraight) return false
+  let dev = 0
+  for (let j = runStart + 1; j < i; j++) {
+    dev = Math.max(dev, attractorLineDist(trail[j], start, end))
+  }
+  return dev < maxDev
+}
+
+/** Omit stroke chords that cut across the knot (long nearly-collinear runs). */
+function strokeAttractorTrail(
+  ctx: CanvasRenderingContext2D,
+  trail: AttractorPoint[],
+  scale: number,
+) {
+  const n = trail.length
+  if (n < 2) return
+  const maxStraight = scaled(90, scale)
+  const maxDev = scaled(3, scale)
+  const omit = new Uint8Array(n)
+  let runStart = 0
+  for (let i = 1; i < n; i++) {
+    if (attractorShouldSkipStraight(trail, runStart, i, maxStraight, maxDev)) {
+      for (let j = runStart + 1; j <= i; j++) omit[j] = 1
+    } else if (i >= 2) {
+      const a = trail[i - 2]
+      const b = trail[i - 1]
+      const p = trail[i]
+      const v1x = b.x - a.x
+      const v1y = b.y - a.y
+      const v2x = p.x - b.x
+      const v2y = p.y - b.y
+      const l1 = Math.hypot(v1x, v1y) || 1
+      const l2 = Math.hypot(v2x, v2y) || 1
+      const dot = (v1x * v2x + v1y * v2y) / (l1 * l2)
+      if (dot < 0.995) runStart = i
+    }
+  }
+  ctx.beginPath()
+  ctx.moveTo(trail[0].x, trail[0].y)
+  for (let i = 1; i < n; i++) {
+    if (omit[i]) continue
+    const p = trail[i]
+    if (omit[i - 1]) ctx.moveTo(p.x, p.y)
+    else ctx.lineTo(p.x, p.y)
+  }
+}
 
 function deJongPoint(t: number, w: number, h: number) {
   const cx = w / 2
@@ -795,12 +1025,7 @@ export function drawAttractor(ctx: CanvasRenderingContext2D, entry: CatalogEntry
   if (data.trail.length < 2) return
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
-  ctx.beginPath()
-  for (let i = 0; i < data.trail.length; i++) {
-    const p = data.trail[i]
-    if (i === 0) ctx.moveTo(p.x, p.y)
-    else ctx.lineTo(p.x, p.y)
-  }
+  strokeAttractorTrail(ctx, data.trail, state.scale)
   ctx.strokeStyle = hsl(entry, 20, 75, 0.55)
   ctx.lineWidth = scaled(1.8, state.scale)
   ctx.stroke()
@@ -816,7 +1041,15 @@ export function drawAttractor(ctx: CanvasRenderingContext2D, entry: CatalogEntry
 }
 
 // --- Nebula ---
-type NebulaCloud = { x: number, y: number, r: number, vx: number, vy: number, hueOff: number }
+type NebulaCloud = {
+  x: number
+  y: number
+  r: number
+  vx: number
+  vy: number
+  hueOff: number
+  phase: number
+}
 type NebulaData = { clouds: NebulaCloud[] }
 
 export function createNebula(entry: CatalogEntry, seed: number, density: number, w: number, h: number): NebulaData {
@@ -830,19 +1063,22 @@ export function createNebula(entry: CatalogEntry, seed: number, density: number,
       x: r.range(0, w),
       y: r.range(0, h),
       r: r.range(lim * 0.1, lim * 0.22),
-      vx: scaled(r.range(-6, 6), scale),
-      vy: scaled(r.range(-4, 4), scale),
+      vx: scaled(r.range(-22, 22), scale),
+      vy: scaled(r.range(-16, 16), scale),
       hueOff: r.range(-15, 25),
+      phase: r.range(0, Math.PI * 2),
     })
   }
   return { clouds }
 }
 
 export function stepNebula(data: NebulaData, state: CatalogVisualState, speed: number, dt: number) {
-  const { width: w, height: h } = state
+  const { width: w, height: h, scale, time } = state
   for (const c of data.clouds) {
     c.x += c.vx * dt * speed
     c.y += c.vy * dt * speed
+    c.x += Math.sin(time * 0.65 + c.phase) * scaled(18, scale) * dt * speed
+    c.y += Math.cos(time * 0.45 + c.phase * 1.2) * scaled(12, scale) * dt * speed
     if (c.x < -c.r) c.x = w + c.r
     if (c.x > w + c.r) c.x = -c.r
     if (c.y < -c.r) c.y = h + c.r
@@ -852,48 +1088,119 @@ export function stepNebula(data: NebulaData, state: CatalogVisualState, speed: n
 
 export function drawNebula(ctx: CanvasRenderingContext2D, entry: CatalogEntry, data: NebulaData, state: CatalogVisualState) {
   const pal = paletteAt(entry.palette)
+  const { time } = state
   state.firstFrame = clearFrame(ctx, state.width, state.height, pal, state.firstFrame)
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
   for (const c of data.clouds) {
-    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r)
-    g.addColorStop(0, hsl(entry, c.hueOff, 55, 0.14))
-    g.addColorStop(0.6, hsl(entry, c.hueOff + 10, 45, 0.06))
+    const pulse = 0.9 + 0.1 * Math.sin(time * 0.7 + c.phase)
+    const r = c.r * pulse
+    const g = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r)
+    g.addColorStop(0, hsl(entry, c.hueOff, 55, 0.14 * pulse))
+    g.addColorStop(0.6, hsl(entry, c.hueOff + 10, 45, 0.06 * pulse))
     g.addColorStop(1, hsl(entry, c.hueOff + 20, 35, 0))
     ctx.fillStyle = g
     ctx.beginPath()
-    ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2)
+    ctx.arc(c.x, c.y, r, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.restore()
 }
 
 // --- Horizon ---
-type HorizonData = { peaks: number[] }
+type HorizonStar = {
+  nx: number
+  ny: number
+  z: number
+  tw: number
+  twRate: number
+  twAmp: number
+  /** 0 = dim dot, 1 = soft halo, 2 = bright with cross flare */
+  style: 0 | 1 | 2
+  tilt: number
+}
 
-export function createHorizon(entry: CatalogEntry, seed: number, _density: number, w: number, _h: number): HorizonData {
-  const { rng } = baseCtx(entry, seed, w, 100)
+type HorizonData = { peaks: number[], stars: HorizonStar[] }
+
+function horizonStarTwinkle(s: HorizonStar, t: number) {
+  const slow = Math.sin(t * s.twRate * 0.55 + s.tw)
+  const mid = Math.sin(t * s.twRate * 1.85 + s.tw * 1.37)
+  return slow * 0.6 + mid * 0.4
+}
+
+export function createHorizon(entry: CatalogEntry, seed: number, density: number, w: number, h: number): HorizonData {
+  const { rng } = baseCtx(entry, seed, w, h)
   const peaks: number[] = []
   const n = 12 + entry.variant * 3
   for (let i = 0; i <= n; i++) peaks.push(rng.range(0.15, 0.55))
-  return { peaks }
+
+  const starCount = particleCount(density, 40, 55, 100)
+  const stars: HorizonStar[] = []
+  for (let i = 0; i < starCount; i++) {
+    const r = rng.fork(i * 23 + 7)
+    const z = r.range(0.15, 1)
+    let style: 0 | 1 | 2 = 0
+    if (z > 0.72 && r.next() < 0.35) style = 2
+    else if (z > 0.45 && r.next() < 0.4) style = 1
+    stars.push({
+      nx: r.range(0, 1),
+      ny: r.range(0, 0.58),
+      z,
+      tw: r.range(0, Math.PI * 2),
+      twRate: r.range(0.35, 2.1),
+      twAmp: r.range(0.35, 1),
+      style,
+      tilt: r.range(0, Math.PI * 2),
+    })
+  }
+  return { peaks, stars }
 }
 
 export function stepHorizon(_data: HorizonData, _state: CatalogVisualState, _speed: number, _dt: number) {}
 
 export function drawHorizon(ctx: CanvasRenderingContext2D, entry: CatalogEntry, data: HorizonData, state: CatalogVisualState) {
   const pal = paletteAt(entry.palette)
-  const { width: w, height: h, time } = state
+  const { width: w, height: h, time, scale } = state
   state.firstFrame = clearFrame(ctx, w, h, pal, state.firstFrame)
   const horizonY = h * 0.62
+  const skyH = horizonY * 0.58
   ctx.save()
   ctx.globalCompositeOperation = 'lighter'
-  for (let i = 0; i < 30; i++) {
-    const x = ((i * 47 + time * 8) % w)
-    const tw = 0.5 + 0.5 * Math.sin(time * 0.5 + i)
-    ctx.fillStyle = hsl(entry, 0, 75, 0.08 + tw * 0.12)
+  for (const s of data.stars) {
+    const x = s.nx * w
+    const y = s.ny * skyH
+    const tw = horizonStarTwinkle(s, time)
+    const amp = s.twAmp * (0.45 + s.z * 0.55)
+    const a = Math.min(0.32, Math.max(0.03, 0.06 + s.z * 0.14 + tw * amp * 0.08))
+    const r = scaled(s.z * (0.45 + (0.5 + tw * 0.5) * 0.55), scale)
+
+    if (s.style >= 1) {
+      ctx.fillStyle = hsl(entry, 0, 72 + s.z * 12, a * 0.3)
+      ctx.beginPath()
+      ctx.arc(x, y, r * (s.style === 2 ? 2.4 : 1.7), 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    if (s.style === 2) {
+      const flare = a * 0.45
+      const len = r * 2.8
+      ctx.strokeStyle = hsl(entry, 0, 82, flare)
+      ctx.lineWidth = scaled(0.45, scale)
+      ctx.beginPath()
+      ctx.moveTo(x - len, y)
+      ctx.lineTo(x + len, y)
+      ctx.moveTo(x, y - len)
+      ctx.lineTo(x, y + len)
+      ctx.stroke()
+    }
+
+    ctx.fillStyle = hsl(entry, 0, 70 + s.z * 18, a)
     ctx.beginPath()
-    ctx.arc(x, horizonY * 0.35 + (i % 5) * 12, scaled(1 + tw, state.scale), 0, Math.PI * 2)
+    if (s.style === 0 && s.z < 0.55) {
+      ctx.ellipse(x, y, r * 0.75, r * 1.15, s.tilt, 0, Math.PI * 2)
+    } else {
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+    }
     ctx.fill()
   }
   ctx.fillStyle = `rgb(${pal.bg.r + 4},${pal.bg.g + 4},${pal.bg.b + 6})`
@@ -1220,43 +1527,156 @@ export function drawBreathe(ctx: CanvasRenderingContext2D, entry: CatalogEntry, 
 }
 
 // --- Granular ---
-type Grain = { x: number, y: number, vx: number, vy: number }
-type GranularData = { grains: Grain[] }
+const GRANULAR_SLOPE_GRAD = 0.15
+
+type Grain = { x: number, y: number, vx: number, vy: number, rest: number }
+type GranularData = {
+  grains: Grain[]
+  spoutX: number
+  spoutY: number
+  spawnAcc: number
+  spawnInterval: number
+  spawnIdx: number
+  restLimit: number
+}
+
+function granularSurfaceY(x: number, w: number, h: number) {
+  return h * 0.55 + (x - w / 2) * GRANULAR_SLOPE_GRAD
+}
+
+function granularSlopeTangent() {
+  const len = Math.hypot(1, GRANULAR_SLOPE_GRAD)
+  return { tx: 1 / len, ty: GRANULAR_SLOPE_GRAD / len }
+}
+
+function respawnGranularGrain(
+  g: Grain,
+  rng: Rng,
+  data: GranularData,
+  scale: number,
+  w: number,
+) {
+  const spread = scaled(14, scale)
+  g.x = data.spoutX + rng.range(-spread, spread)
+  g.y = data.spoutY
+  g.vx = scaled(rng.range(-10, 10), scale)
+  g.vy = scaled(rng.range(28, 62), scale)
+  g.rest = 0
+  if (g.x < 0) g.x = rng.range(0, w * 0.08)
+  if (g.x > w) g.x = w - rng.range(0, w * 0.08)
+}
 
 export function createGranular(entry: CatalogEntry, seed: number, density: number, w: number, h: number): GranularData {
   const { rng, scale } = baseCtx(entry, seed, w, h)
   const n = particleCount(density, 80, 120, 220)
+  const spoutRng = rng.fork(901)
+  const spoutX = spoutRng.range(w * 0.38, w * 0.62)
+  const spoutY = h * 0.08
   const grains: Grain[] = []
   for (let i = 0; i < n; i++) {
     const r = rng.fork(i * 71)
-    grains.push({
-      x: r.range(0, w),
-      y: r.range(h * 0.2, h * 0.5),
-      vx: scaled(r.range(-8, 8), scale),
-      vy: scaled(r.range(20, 55), scale),
-    })
+    const phase = i / n
+    let x: number
+    let y: number
+    let vx: number
+    let vy: number
+    if (phase < 0.35) {
+      x = spoutX + r.range(-scaled(24, scale), scaled(24, scale))
+      y = r.range(spoutY, h * 0.42)
+      vx = scaled(r.range(-12, 12), scale)
+      vy = scaled(r.range(24, 58), scale)
+    } else if (phase < 0.72) {
+      x = r.range(w * 0.08, w * 0.92)
+      y = granularSurfaceY(x, w, h) - scaled(r.range(1, 6), scale)
+      const { tx, ty } = granularSlopeTangent()
+      const slide = scaled(r.range(8, 28), scale)
+      vx = tx * slide
+      vy = ty * slide
+    } else {
+      x = spoutX + r.range(-scaled(8, scale), scaled(8, scale))
+      y = spoutY + r.range(0, scaled(4, scale))
+      vx = scaled(r.range(-4, 4), scale)
+      vy = scaled(r.range(8, 18), scale)
+    }
+    grains.push({ x, y, vx, vy, rest: r.range(0, 1.2) })
   }
-  return { grains }
+  return {
+    grains,
+    spoutX,
+    spoutY,
+    spawnAcc: 0.35,
+    spawnInterval: 0.14 / (0.45 + density * 0.85),
+    spawnIdx: 0,
+    restLimit: 2.4 + (1 - density) * 1.6,
+  }
 }
 
 export function stepGranular(data: GranularData, state: CatalogVisualState, speed: number, dt: number) {
-  const { width: w, height: h, scale, seed } = state
-  const slope = h * 0.55
-  const rng = createRng(seed + Math.floor(state.time * 9))
+  const { width: w, height: h, scale, seed, time } = state
+  const rng = createRng(seed + Math.floor(time * 9))
+  const { tx, ty } = granularSlopeTangent()
+  const grav = scaled(38, scale)
+  const slidePull = scaled(42, scale)
+  const restLimit = data.restLimit
+  const restSpeed = scaled(6, scale) ** 2
+  const grainR = scaled(2.2, scale)
+  const wind = Math.sin(time * 0.62 + seed * 0.002) * scaled(28, scale)
+
+  data.spawnAcc -= dt * speed
+  if (data.spawnAcc <= 0) {
+    data.spawnAcc = data.spawnInterval
+    let pick = data.spawnIdx % data.grains.length
+    let bestRest = data.grains[pick].rest
+    for (let j = 0; j < 8; j++) {
+      const idx = (data.spawnIdx + j) % data.grains.length
+      if (data.grains[idx].rest > bestRest) {
+        bestRest = data.grains[idx].rest
+        pick = idx
+      }
+    }
+    data.spawnIdx = (pick + 1) % data.grains.length
+    respawnGranularGrain(data.grains[pick], rng.fork(pick * 11 + 3), data, scale, w)
+  }
+
   for (let i = 0; i < data.grains.length; i++) {
     const g = data.grains[i]
     const r = rng.fork(i * 5)
-    g.vy += scaled(30, scale) * dt * speed
+    g.vy += grav * dt * speed
     g.x += g.vx * dt * speed
     g.y += g.vy * dt * speed
-    if (g.y > slope + (g.x - w / 2) * 0.15) {
-      g.vy *= -0.3
-      g.vx += r.range(-0.5, 0.5) * scaled(20, scale) * dt
+
+    const surfY = granularSurfaceY(g.x, w, h) - grainR
+    const onSlope = g.y >= surfY - scaled(2, scale)
+
+    if (onSlope) {
+      g.y = surfY
+      const vDotT = g.vx * tx + g.vy * ty
+      const slide = Math.max(vDotT, 0) * 0.88 + slidePull * dt * speed
+      g.vx = tx * slide + wind * dt * speed * 0.35
+      g.vy = ty * slide
+      g.vx *= 0.985
+      g.vy *= 0.985
+      g.vx += r.range(-0.5, 0.5) * scaled(14, scale) * dt * speed
+      if (r.next() < 0.0018 * speed) {
+        g.vx += r.range(-1, 1) * scaled(36, scale)
+        g.vy += ty * scaled(22, scale)
+        g.rest = 0
+      }
     }
-    if (g.y > h + 5 || g.x < -5 || g.x > w + 5) {
-      g.y = state.height * 0.15
-      g.x = r.range(0, w)
-      g.vy = scaled(20, scale)
+
+    const speed2 = g.vx * g.vx + g.vy * g.vy
+    if (onSlope && speed2 < restSpeed) {
+      g.rest += dt * speed
+      if (g.rest > restLimit) {
+        respawnGranularGrain(g, r.fork(17), data, scale, w)
+        continue
+      }
+    } else {
+      g.rest = Math.max(0, g.rest - dt * speed * 0.5)
+    }
+
+    if (g.y > h + grainR || g.x < -grainR || g.x > w + grainR) {
+      respawnGranularGrain(g, r.fork(29), data, scale, w)
     }
   }
 }

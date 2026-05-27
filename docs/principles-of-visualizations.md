@@ -31,9 +31,11 @@ Guidelines for building and reviewing visuals in **Stream Systems Visual**. The 
 ## Motion and simulation
 
 - **Infinite or self-cycling.** Particles and effects should spawn and despawn (or loop) so nothing piles up at a single point (e.g. vortex center) or stalls off-screen.
+- **Slope/pile sims must keep moving.** When grains or particles settle on a surface, recycle resting ones back to an emitter and keep a steady drip—do not let the scene freeze after the initial fall.
 - **Speed scales with `speed` param and layout `scale`.** Use `scaled(value, state.scale)` from `resolution-scale.ts` for distances, velocities, and stroke widths.
 - **Density drives counts, with caps.** Use helpers like `particleCount(density, base, spread, max)`—never unbounded loops over viewport pixels at full resolution.
 - **All randomness through `createRng(seed)`** and `rng.fork(salt)` so respawns and layout stay reproducible.
+- **Path tracers:** When a trail is drawn as one polyline, break the stroke on long nearly-collinear runs (do not `lineTo` across them) so parametric curves do not cut chords through dense knots.
 
 ## Layout and performance
 
