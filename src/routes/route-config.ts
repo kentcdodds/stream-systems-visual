@@ -53,6 +53,12 @@ export const visualizationRouteConfigs: VisualizationRouteConfig[] = [
     ariaLabel: 'Rising ember particles',
   },
   {
+    id: 'cinders',
+    path: '/v/cinders',
+    label: 'Cinders',
+    ariaLabel: 'Sideways drifting fire ash and cinders',
+  },
+  {
     id: 'cascade',
     path: '/v/cascade',
     label: 'Cascade',

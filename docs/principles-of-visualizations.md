@@ -29,6 +29,7 @@ Guidelines for building and reviewing visuals in **Stream Systems Visual**. The 
 - **`globalCompositeOperation = 'lighter'`** for glows, particles, and lines—keeps highlights soft on dark fields.
 - **Semi-transparent trail clears** instead of full clears every frame: opaque fill on `firstFrame`, then `rgba(bg, ~0.15)` overlay for motion blur. Reset `firstFrame` on resize/buffer reset.
 - **Hue accents, not rainbow noise.** Prefer one family of hues per visual with modest variation (`hue + offset`), not unrelated colors per particle.
+- **Fire-adjacent visuals need distinct material behavior.** Do not make every warm particle field another Ember variant; ash, charcoal, sparks, and cinders should differ by shape, opacity, velocity, gravity, and whether the fire source is visible or implied off-canvas. Wind-blown ash/cinders should feel turbulent: individual pieces vary speed, lurch, stall, and change direction under simulated gusts.
 
 ## Motion and simulation
 

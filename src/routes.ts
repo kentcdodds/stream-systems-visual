@@ -16,6 +16,9 @@ const SaberVisualPage = lazy(() =>
 const EmberVisualPage = lazy(() =>
   import('./pages/ember-visual-page').then(m => ({ default: m.EmberVisualPage })),
 )
+const CindersVisualPage = lazy(() =>
+  import('./pages/cinders-visual-page').then(m => ({ default: m.CindersVisualPage })),
+)
 const CascadeVisualPage = lazy(() =>
   import('./pages/cascade-visual-page').then(m => ({ default: m.CascadeVisualPage })),
 )
@@ -80,6 +83,7 @@ export const visualizationPagesById = {
   strata: StrataVisualPage,
   saber: SaberVisualPage,
   ember: EmberVisualPage,
+  cinders: CindersVisualPage,
   cascade: CascadeVisualPage,
   sonar: SonarVisualPage,
   mesh: MeshVisualPage,
