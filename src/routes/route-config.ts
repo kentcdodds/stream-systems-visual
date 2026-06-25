@@ -142,6 +142,18 @@ export const visualizationRouteConfigs: VisualizationRouteConfig[] = [
     label: 'Solar Voyage',
     ariaLabel: 'Solar system drifting through space',
   },
+  {
+    id: 'spawn',
+    path: '/v/spawn',
+    label: 'Spawn',
+    ariaLabel: 'Flowing particles drawn to wandering targets',
+  },
+  {
+    id: 'spinner',
+    path: '/v/spinner',
+    label: 'Spinner',
+    ariaLabel: 'Concentric pulsing dot rings',
+  },
   ...catalogRouteConfigs,
 ]
 
