@@ -58,6 +58,12 @@ const HarmonicStringsVisualPage = lazy(() =>
 const SolarVoyageVisualPage = lazy(() =>
   import('./pages/solar-voyage-visual-page').then(m => ({ default: m.SolarVoyageVisualPage })),
 )
+const SpawnVisualPage = lazy(() =>
+  import('./pages/spawn-visual-page').then(m => ({ default: m.SpawnVisualPage })),
+)
+const SpinnerVisualPage = lazy(() =>
+  import('./pages/spinner-visual-page').then(m => ({ default: m.SpinnerVisualPage })),
+)
 const CatalogVisualPage = lazy(() =>
   import('./pages/catalog-visual-page').then(m => ({ default: m.CatalogVisualPage })),
 )
@@ -94,6 +100,8 @@ export const visualizationPagesById = {
   snake: SnakeVisualPage,
   'harmonic-strings': HarmonicStringsVisualPage,
   'solar-voyage': SolarVoyageVisualPage,
+  spawn: SpawnVisualPage,
+  spinner: SpinnerVisualPage,
   ...Object.fromEntries(catalogDefinitions.map(d => [d.id, CatalogVisualPage])),
 } satisfies Record<string, ComponentType>
 
